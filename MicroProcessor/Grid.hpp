@@ -20,17 +20,25 @@ public:
 
     //-----------Grid Interface------------
     //All return true if successful
-    bool Update();
 
-    bool SetLed(unsigned int x, unsigned int y, const Color& c);
-    bool ClearLeds();
+    //Input piece placement data from circuit and change Cell LEDs
+    void Update();
 
-    bool GetPiecePlaced(unsigned int x, unsigned int y, bool& isPlaced);
+    //Change all Cell LEDs to Black
+    void ClearLeds();
+
+    //Access Cell* from grid. Ex: grid(x, y)
+    Cell* operator()(unsigned int x, unsigned int y);
+    Cell* GetCell(unsigned int x, unsigned int y);
+
+private:
+    //-----------Helper Functions----------
+    void SetUpGrid();
 
     //-----------Parameters----------------
-public:
-    unsigned int myDimX;
-    unsigned int myDimY;
+private:
+    unsigned int dimX;
+    unsigned int dimY;
 
-    std::vector<std::vector<Cell>> myGrid;
+    std::vector<std::vector<Cell>> grid;
 };
