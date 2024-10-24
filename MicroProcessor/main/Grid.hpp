@@ -1,6 +1,8 @@
 // Grid class which stores a 2d array of 'Cell' objects and
 // functions to interface with them
 
+#pragma once
+
 #include "Cell.hpp"
 #include "Color.hpp"
 #include <vector>

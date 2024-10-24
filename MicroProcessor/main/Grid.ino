@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Grid.hpp"
 
 Grid::Grid() : dimX(0), dimY(0)

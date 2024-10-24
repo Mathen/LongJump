@@ -1,5 +1,7 @@
 //Description
 
+#pragma once
+
 #include "Color.hpp"
 
 struct Cell
