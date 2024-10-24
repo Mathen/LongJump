@@ -22,7 +22,18 @@ client.on('connect', () => {
 });
 
 client.on('message', (topic, message) => {
-    const data = message.toString();
+    // Input sanitization
+    if (!topic || typeof topic !== 'string') {
+        console.error('Invalid topic:', topic);
+        return;
+    }
+
+    const data = message ? message.toString() : null;
+    if (!data) {
+        console.error('Empty or invalid message:', message);
+        return;
+    }
+
     console.log('Topic:', topic, 'Message:', data);
     io.emit('mqtt-message', { topic, data });
 });
