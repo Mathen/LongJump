@@ -145,6 +145,24 @@ void loop()
   
   if (currentMillis - previousMillis >= interval)
   {
+
+    mqttClient.beginMessage(topic);
+    for (int i = 0; i < 9; i++)
+    {
+      Serial.print(buttons[i]);
+      Serial.print(" ");
+
+      if (i % 3 == 0)
+        mqttClient.println();
+      if (buttons[i] > 100)
+        mqttClient.print("1 ");
+      else
+        mqttClient.print("0 ");
+
+    }
+    mqttClient.endMessage();
+    Serial.println();
+
     // save the last time a message was sent
     previousMillis = currentMillis;
 
@@ -194,17 +212,15 @@ void loop()
   pinMode(A2, INPUT); 
   delay(10); 
 
-  for (int i = 0; i < 9; i++) {
-    if (buttons[i] > 100) {
-      leds[i] = CRGB::Red;
+    for (int i = 0; i < 9; i++) {
+      if (buttons[i] > 100) {
+        leds[i] = CHSV((i * 255 / 9), 255, 255);
+      }
+      else {
+        leds[i] = CRGB::Black;
+      }
     }
-    else {
-      leds[i] = CRGB::Black;
-    }
-    Serial.print(buttons[i]);
-    Serial.print(" ");
-  }
-  Serial.println();
+
   FastLED.show();
 
   delay(10);  // Small delay to avoid bouncing 
