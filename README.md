@@ -21,8 +21,8 @@
 
 ### Bugs/Know issues
 - Piece placement
-  - Connections are being read through the analog ports on the arduino, so the data comes in as anolog values (and needs to be converted) instead of digital 0/1.
-  - Piece placement is being simulated by using a wire to connect the circuit instead of having physical pieces hover over and being detected.
+ - Connections are being read through the analog ports on the arduino, so the data comes in as anolog values (and needs to be converted) instead of digital 0/1.
+ - Piece placement is being simulated by using a wire to connect the circuit instead of having physical pieces hover over and being detected.
 - Confirm button on the board not currently implimented in code. Currently board state is sent at around 10Hz to server. 
 - LED array is physical set up as a 1-D strip instead of being layed out on the 2-D grid board array.
 - Wifi/Network credentials are being hard coded for a team members personal hotspot. So, network testing can't be preformed without their phone.
