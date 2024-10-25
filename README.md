@@ -19,7 +19,7 @@
 - Corresponding LED on the grid lights up based on if a piece is being pressed or not from the array in the MicroProcessor.
 - Board state is being sent to the server through Mqtt and displayed on the server terminal.
 
-### Bugs/Know issues
+### Bugs/Known issues
 - Piece placement
   - Connections are being read through the analog ports on the arduino, so the data comes in as anolog values (and needs to be converted) instead of digital 0/1.
   - Piece placement is being simulated by using a wire to connect the circuit instead of having physical pieces hover over and being detected.
