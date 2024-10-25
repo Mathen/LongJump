@@ -27,4 +27,4 @@
 - LED array is physical set up as a 1-D strip instead of being layed out on the 2-D grid board array.
 - Wifi/Network credentials are being hard coded for a team members personal hotspot. So, network testing can't be preformed without their phone.
   - Also, the setup doesn't complete until there is a network connection, so other testing can't be done on the board.
-- Backend
+- If Wi-Fi is disconnected during active MQTT transmission, no error message is displayed via serial and the Arduino still attempts to send messages
