@@ -1,8 +1,9 @@
+#include <Adafruit_NeoPixel.h>
+#include <WiFiProvisioner.h>
 #include "LcdInterface.hpp"
 #include "Grid.hpp"
 #include <LiquidCrystal.h>
 #include <ArduinoMqttClient.h>
-#include <FastLED.h>
 #if defined(ARDUINO_SAMD_MKRWIFI1010) || defined(ARDUINO_SAMD_NANO_33_IOT) || defined(ARDUINO_AVR_UNO_WIFI_REV2)
   #include <WiFiNINA.h>
 #elif defined(ARDUINO_SAMD_MKR1000)
@@ -45,7 +46,7 @@ LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
 
 int buttons[9] = {0};
 
-CRGB leds[9];  // LED array
+//CRGB leds[9];  // LED array
 
 Grid grid;
 
@@ -69,16 +70,26 @@ void setup()
   pinMode(11, INPUT);   // None
   pinMode(12, INPUT);   // None
   pinMode(13, INPUT);   // None
-  pinMode(A0, OUTPUT);  // Out: grid piece placement row[0]
+  /*
+  pinMode(A0, OUTPUT);  // Out: grid piece placement row[0] 
   pinMode(A1, OUTPUT);  // Out: grid piece placement row[1]
   pinMode(A2, OUTPUT);  // Out: grid piece placement row[2]
   pinMode(A3, INPUT);   //  In: grid piece placement col[0]
   pinMode(A4, INPUT);   //  In: grid piece placement col[1]
   pinMode(A5, INPUT);   //  In: grid piece placement col[2]
+*/
+  // Using pins 20-25 now
+  pinMode(20, OUTPUT);  // Out: grid piece placement row[0]
+  pinMode(21, OUTPUT);  // Out: grid piece placement row[1]
+  pinMode(22, OUTPUT);  // Out: grid piece placement row[2]
+  pinMode(23, INPUT);   //  In: grid piece placement col[0]
+  pinMode(24, INPUT);   //  In: grid piece placement col[1]
+  pinMode(25, INPUT);   //  In: grid piece placement col[2]
 
   // Initialize LEDs
-  FastLED.addLeds<WS2812, 6, GRB>(leds, 9);
-  FastLED.setBrightness(50);
+  //FastLED.addLeds<WS2812, 6, GRB>(leds, 9);
+  //FastLED.addLeds<WS2812, 13, GRB>(leds, 9);
+  //FastLED.setBrightness(50);
 
   //Grid
   grid = Grid(3);
@@ -183,6 +194,7 @@ void loop()
   }
 
     // Test top row
+    /*
   pinMode(A0, OUTPUT); 
   digitalWrite(A0, HIGH);  
   buttons[0] = analogRead(A3);
@@ -191,8 +203,18 @@ void loop()
   digitalWrite(A0, LOW);   
   pinMode(A0, INPUT);
   delay(10);
+  */
+  pinMode(20, OUTPUT); 
+  digitalWrite(20, HIGH);  
+  buttons[0] = analogRead(23);
+  buttons[1] = analogRead(24);
+  buttons[2] = analogRead(25);
+  digitalWrite(20, LOW);   
+  pinMode(20, INPUT);
+  delay(10);
 
   // Test middle row
+  /*
   pinMode(A1, OUTPUT); 
   digitalWrite(A1, HIGH);  
   buttons[3] = analogRead(A3);
@@ -201,8 +223,18 @@ void loop()
   digitalWrite(A1, LOW);   
   pinMode(A1, INPUT); 
   delay(10); 
+  */
+  pinMode(21, OUTPUT); 
+  digitalWrite(21, HIGH);  
+  buttons[3] = analogRead(23);
+  buttons[4] = analogRead(24);
+  buttons[5] = analogRead(25);
+  digitalWrite(21, LOW);   
+  pinMode(21, INPUT); 
+  delay(10); 
 
   // Test bottom row
+  /*
   pinMode(A2, OUTPUT); 
   digitalWrite(A2, HIGH);  
   buttons[6] = analogRead(A3);
@@ -210,18 +242,27 @@ void loop()
   buttons[8] = analogRead(A5);
   digitalWrite(A2, LOW);   
   pinMode(A2, INPUT); 
-  delay(10); 
+  delay(10);
+  */
+  pinMode(22, OUTPUT); 
+  digitalWrite(22, HIGH);  
+  buttons[6] = analogRead(23);
+  buttons[7] = analogRead(24);
+  buttons[8] = analogRead(25);
+  digitalWrite(22, LOW);   
+  pinMode(22, INPUT); 
+  delay(10);
 
     for (int i = 0; i < 9; i++) {
       if (buttons[i] > 100) {
-        leds[i] = CHSV((i * 255 / 9), 255, 255);
+        //leds[i] = CHSV((i * 255 / 9), 255, 255);
       }
       else {
-        leds[i] = CRGB::Black;
+        //leds[i] = CRGB::Black;
       }
     }
 
-  FastLED.show();
+  //FastLED.show();
 
   delay(10);  // Small delay to avoid bouncing 
 }
