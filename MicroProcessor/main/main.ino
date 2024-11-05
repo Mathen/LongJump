@@ -4,24 +4,7 @@
 #include "Grid.hpp"
 #include <LiquidCrystal.h>
 #include <ArduinoMqttClient.h>
-#if defined(ARDUINO_SAMD_MKRWIFI1010) || defined(ARDUINO_SAMD_NANO_33_IOT) || defined(ARDUINO_AVR_UNO_WIFI_REV2)
-  #include <WiFiNINA.h>
-#elif defined(ARDUINO_SAMD_MKR1000)
-  #include <WiFi101.h>
-#elif defined(ARDUINO_ARCH_ESP8266)
-  #include <ESP8266WiFi.h>
-#elif defined(ARDUINO_PORTENTA_H7_M7) || defined(ARDUINO_NICLA_VISION) || defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_GIGA) || defined(ARDUINO_OPTA)
-  #include <WiFi.h>
-#elif defined(ARDUINO_PORTENTA_C33)
-  #include <WiFiC3.h>
-#elif defined(ARDUINO_UNOR4_WIFI)
-  #include <WiFiS3.h>
-#endif
-
-#include "arduino_secrets.h"
-///////please enter your sensitive data in the Secret tab/arduino_secrets.h
-char ssid[] = SECRET_SSID;    // your network SSID (name)
-char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
+#include <WiFi.h>
 
 // To connect with SSL/TLS:
 // 1) Change WiFiClient to WiFiSSLClient.
@@ -29,6 +12,7 @@ char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as k
 // 3) Change broker value to a server with a known SSL/TLS root certificate 
 //    flashed in the WiFi module.
 
+WiFiProvisioner::WiFiProvisioner provisioner;
 WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
 
@@ -41,10 +25,10 @@ unsigned long previousMillis = 0;
 
 int count = 0;
 
-// LCD init
-LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
-
 int buttons[9] = {0};
+
+//LiquidCrystal lcd(31, 37, 30, 28, 27, 23);
+LiquidCrystal lcd(19, 23, 18, 17, 16, 15);
 
 //CRGB leds[9];  // LED array
 
@@ -56,6 +40,7 @@ void setup()
 
   //Pins being used
   //Set Pins not being used to input (to not accidently make a short)
+  /*
   pinMode( 0, OUTPUT);  // None
   pinMode( 1, OUTPUT);  // None
   pinMode( 2, OUTPUT);  // None
@@ -70,6 +55,7 @@ void setup()
   pinMode(11, INPUT);   // None
   pinMode(12, INPUT);   // None
   pinMode(13, INPUT);   // None
+  */
   /*
   pinMode(A0, OUTPUT);  // Out: grid piece placement row[0] 
   pinMode(A1, OUTPUT);  // Out: grid piece placement row[1]
@@ -78,45 +64,55 @@ void setup()
   pinMode(A4, INPUT);   //  In: grid piece placement col[1]
   pinMode(A5, INPUT);   //  In: grid piece placement col[2]
 */
-  // Using pins 20-25 now
-  pinMode(20, OUTPUT);  // Out: grid piece placement row[0]
-  pinMode(21, OUTPUT);  // Out: grid piece placement row[1]
-  pinMode(22, OUTPUT);  // Out: grid piece placement row[2]
-  pinMode(23, INPUT);   //  In: grid piece placement col[0]
-  pinMode(24, INPUT);   //  In: grid piece placement col[1]
-  pinMode(25, INPUT);   //  In: grid piece placement col[2]
+  // ESP32
+  pinMode(33, OUTPUT);  // Out: grid piece placement row[0] //20
+  pinMode(32, OUTPUT);  // Out: grid piece placement row[1] //21
+  pinMode(25, OUTPUT);  // Out: grid piece placement row[2] //22
+  pinMode(34, INPUT);   //  In: grid piece placement col[0] //23
+  pinMode(39, INPUT);   //  In: grid piece placement col[1] //24
+  pinMode(36, INPUT);   //  In: grid piece placement col[2] //25
 
   // Initialize LEDs
   //FastLED.addLeds<WS2812, 6, GRB>(leds, 9);
   //FastLED.addLeds<WS2812, 13, GRB>(leds, 9);
   //FastLED.setBrightness(50);
-
+  // LCD init
   //Grid
   grid = Grid(3);
-
-  // set up the LCD's number of columns and rows:
-  lcd.begin(16, 2);
-  // Print a message to the LCD.
-  lcd.print("Welcome! Go to:");
-  // Move to bottom row
-  lcd.setCursor(0,1);
-  lcd.print("t.ly/h7NLS");
+  
 
   //Initialize serial and wait for port to open:
   Serial.begin(9600);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
-  // attempt to connect to WiFi network:
-  Serial.print("Attempting to connect to WPA SSID: ");
-  Serial.println(ssid);
+
+  Serial.print("LCD init\n");
+  lcd.begin(16, 2);
+  // Print a message to the LCD.
+  lcd.print("Welcome! Go to:");
+  // Move to bottom row
+  lcd.setCursor(0,1);
+  lcd.print("t.ly/h7NLS");
+  Serial.print("Complete!\n");
+  //delay(5000);
+
+  // attempt to connect to WiFi network using provisioning:
+  Serial.print("Resetting credentials...\n");
+  //provisioner.setFactoryResetCallback(myFactoryResetCallback);
+  provisioner.AP_NAME = "Longjump";
+  provisioner.setupAccessPointAndServer();
+  provisioner.connectToWiFi();
+
+  //Serial.println(ssid);
+  /*
   while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
     // failed, retry
     Serial.print(".");
     delay(5000);
-  }
+  }*/
 
-  Serial.println("You're connected to the network");
+  Serial.println("You're connected to the network\n");
   Serial.println();
 
   // You can provide a unique client ID, if not set the library uses Arduino-millis()
@@ -204,13 +200,13 @@ void loop()
   pinMode(A0, INPUT);
   delay(10);
   */
-  pinMode(20, OUTPUT); 
-  digitalWrite(20, HIGH);  
-  buttons[0] = analogRead(23);
-  buttons[1] = analogRead(24);
-  buttons[2] = analogRead(25);
-  digitalWrite(20, LOW);   
-  pinMode(20, INPUT);
+  pinMode(33, OUTPUT); 
+  digitalWrite(33, HIGH);  
+  buttons[0] = analogRead(34);
+  buttons[1] = analogRead(39);
+  buttons[2] = analogRead(36);
+  digitalWrite(33, LOW);   
+  pinMode(33, INPUT);
   delay(10);
 
   // Test middle row
@@ -224,13 +220,13 @@ void loop()
   pinMode(A1, INPUT); 
   delay(10); 
   */
-  pinMode(21, OUTPUT); 
-  digitalWrite(21, HIGH);  
-  buttons[3] = analogRead(23);
-  buttons[4] = analogRead(24);
-  buttons[5] = analogRead(25);
-  digitalWrite(21, LOW);   
-  pinMode(21, INPUT); 
+  pinMode(32, OUTPUT); 
+  digitalWrite(32, HIGH);  
+  buttons[3] = analogRead(34);
+  buttons[4] = analogRead(39);
+  buttons[5] = analogRead(36);
+  digitalWrite(32, LOW);   
+  pinMode(32, INPUT); 
   delay(10); 
 
   // Test bottom row
@@ -244,13 +240,13 @@ void loop()
   pinMode(A2, INPUT); 
   delay(10);
   */
-  pinMode(22, OUTPUT); 
-  digitalWrite(22, HIGH);  
-  buttons[6] = analogRead(23);
-  buttons[7] = analogRead(24);
-  buttons[8] = analogRead(25);
-  digitalWrite(22, LOW);   
-  pinMode(22, INPUT); 
+  pinMode(25, OUTPUT); 
+  digitalWrite(25, HIGH);  
+  buttons[6] = analogRead(34);
+  buttons[7] = analogRead(39);
+  buttons[8] = analogRead(36);
+  digitalWrite(25, LOW);   
+  pinMode(25, INPUT); 
   delay(10);
 
     for (int i = 0; i < 9; i++) {
