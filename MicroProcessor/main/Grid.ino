@@ -15,6 +15,10 @@ Grid::Grid(unsigned int dimentionX, unsigned int dimentionY) : dimX(dimentionX),
 
 void Grid::Update()
 {
+  //Leds
+  leds.show();
+
+
   //Pins
   int outPins[3] = {33, 32, 25};
   int inPins[3] = {34, 39, 36};
@@ -24,58 +28,50 @@ void Grid::Update()
   //  Wait short time for next reads
   //  Read each inPins
   //  Set Cell(x, y) to value
-  for (unsigned int x = 0; x < dimX; x++)
+  for (unsigned int y = 0; y < dimY; y++)
   {
     delay(10); //10ms
-    for (unsigned int tempX = 0; tempX < dimX; tempX++)
+    for (unsigned int tempY = 0; tempY < dimY; tempY++)
     {
-      if (tempX == x)
-        digitalWrite(outPins[tempX], HIGH);
+      if (tempY == y)
+        digitalWrite(outPins[tempY], HIGH);
       else
-        digitalWrite(outPins[tempX], LOW);
+        digitalWrite(outPins[tempY], LOW);
     }
 
     delay(10); //10ms
-    for (unsigned int y = 0; y < dimY; y++)
+    for (unsigned int x = 0; x < dimX; x++)
     {
       piecesPlaced[x][y] = digitalRead(inPins[y]) == HIGH;
     }
   }
-    
 }
 
 void Grid::ClearLeds()
 {
-  for (unsigned int x = 0; x < dimX; x++)
-  {
-    for (unsigned int y = 0; y < dimY; y++)
-    {
-      SetColor(x, y, CRGB::Black);
-    }
-  }
+  leds.clear();
 }
 
-void SetColor(unsigned int x, unsigned int y, CRGB color)
+void Grid::SetColor(unsigned int x, unsigned int y, uint32_t color)
 {
   if (x < dimX && y < dimY)
-    return false;
+    return;
 
   if (y % 2 == 1)
     y = dimY - y - 1;
 
-  leds[y * dimX + x] = color;
+  leds.setPixelColor(y * dimX + x, color);
 
   // 0 1 2
   // 5 4 3
   // 6 7 8
 }
-void SetColor(unsigned int x, unsigned int y, CHVS color)
+void Grid::SetColor(unsigned int x, unsigned int y, uint8_t r, uint8_t g, uint8_t b)
 {
-  CRGB rgb = color;
-  SetColor(x, y, rgb);
+  SetColor(x, y, Adafruit_NeoPixel::Color(r, g, b));
 }
 
-bool GetPiecePlaced(unsigned int x, unsigned int y)
+bool Grid::GetPiecePlaced(unsigned int x, unsigned int y)
 {
   if (x < dimX && y < dimY)
     return false;
@@ -85,7 +81,11 @@ bool GetPiecePlaced(unsigned int x, unsigned int y)
 
 void Grid::SetUpGrid()
 {
-  leds = std::vector<CRGB>(dimX * dimY, CRGB::Black);
+  leds.setPin(13);
+  leds.updateLength(dimX * dimY);
+  leds.setBrightness(0xFF);
+
+  leds.begin();
   ClearLeds();
 
   piecesPlaced = std::vector<std::vector<bool>>(dimX, std::vector<bool>());

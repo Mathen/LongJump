@@ -4,7 +4,7 @@
 #pragma once
 
 #include <vector>
-#include <FastLED.h>
+#include <Adafruit_NeoPixel.h>
 
 class Grid
 {
@@ -26,9 +26,9 @@ public:
   //Change all Cell LEDs to Black
   void ClearLeds();
 
-  //Set the color of a grid based on an RGB/HVS value
-  void SetColor(unsigned int x, unsigned int y, CRGB color);
-  void SetColor(unsigned int x, unsigned int y, CHSV color);
+  //Set the color of a grid based on an RGB value
+  void SetColor(unsigned int x, unsigned int y, uint32_t color);
+  void SetColor(unsigned int x, unsigned int y, uint8_t r, uint8_t g, uint8_t b);
 
   //Returns if a piece is placed on that location on the grid
   bool GetPiecePlaced(unsigned int x, unsigned int y);
@@ -39,9 +39,9 @@ private:
 
   //-----------Parameters----------------
 private:
-  const unsigned int dimX;
-  const unsigned int dimY;
+  unsigned int dimX;
+  unsigned int dimY;
 
-  std::vector<CRGB> leds;  // LED array
+  Adafruit_NeoPixel leds;
   std::vector<std::vector<bool>> piecesPlaced;
 };

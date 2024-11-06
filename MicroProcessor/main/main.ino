@@ -1,4 +1,4 @@
-#include <FastLED.h>
+//#include <FastLED.h>
 #include <Adafruit_NeoPixel.h>
 #include <WiFiProvisioner.h>
 #include <LiquidCrystal.h>
@@ -26,8 +26,6 @@ const long interval = 1000;
 unsigned long previousMillis = 0;
 
 int count = 0;
-
-int buttons[9] = {0};
 
 //LiquidCrystal lcd(31, 37, 30, 28, 27, 23);
 LiquidCrystal lcd(19, 23, 18, 17, 16, 15);
@@ -73,7 +71,6 @@ void setup()
   pinMode(36, INPUT);   //  In: grid piece placement col[2] //25
 
   // Initialize LEDs
-  //FastLED.addLeds<WS2812, 6, GRB>(leds, 9);
   //FastLED.addLeds<WS2812, 13, GRB>(leds, 9);
   //FastLED.setBrightness(50);
   // LCD init
@@ -139,8 +136,8 @@ void setup()
 
 void loop()
 {
-  // put your main code here, to run repeatedly:
-  //grid.Update();
+  //Update the inputs and outputs the state of the grid to the board
+  grid.Update();
 
   // call poll() regularly to allow the library to send MQTT keep alives which
   // avoids being disconnected by the broker
@@ -154,52 +151,33 @@ void loop()
   {
 
     mqttClient.beginMessage(topic);
-    for (int i = 0; i < 9; i++)
+    mqttClient.print(count);
+    mqttClient.println();
+    for (int y = 0; y < 3; y++)
     {
-      Serial.print(buttons[i]);
-      Serial.print(" ");
-
-      if (i % 3 == 0)
-        mqttClient.println();
-      if (buttons[i] > 100)
-        mqttClient.print("1 ");
-      else
-        mqttClient.print("0 ");
-
+      for (int x = 0; x < 3; x++)
+      {
+        if (grid.GetPiecePlaced(x, y))
+        {
+          mqttClient.print("1 ");
+        }
+        else
+        {
+          mqttClient.print("0 ");
+        }
+      }
+      mqttClient.println();
     }
+    mqttClient.println();
     mqttClient.endMessage();
-    Serial.println();
 
     // save the last time a message was sent
     previousMillis = currentMillis;
-
-    Serial.print("Sending message to topic: ");
-    Serial.println(topic);
-    Serial.print("hello ");
-    Serial.println(count);
-
-    // send message, the Print interface can be used to set the message contents
-    mqttClient.beginMessage(topic);
-    mqttClient.print("hello ");
-    mqttClient.print(count);
-    mqttClient.endMessage();
-
-    Serial.println();
-
     count++;
   }
 
-    // Test top row
-    /*
-  pinMode(A0, OUTPUT); 
-  digitalWrite(A0, HIGH);  
-  buttons[0] = analogRead(A3);
-  buttons[1] = analogRead(A4);
-  buttons[2] = analogRead(A5);
-  digitalWrite(A0, LOW);   
-  pinMode(A0, INPUT);
-  delay(10);
-  */
+  /*
+  // Test top row
   pinMode(33, OUTPUT); 
   digitalWrite(33, HIGH);  
   buttons[0] = analogRead(34);
@@ -210,16 +188,6 @@ void loop()
   delay(10);
 
   // Test middle row
-  /*
-  pinMode(A1, OUTPUT); 
-  digitalWrite(A1, HIGH);  
-  buttons[3] = analogRead(A3);
-  buttons[4] = analogRead(A4);
-  buttons[5] = analogRead(A5);
-  digitalWrite(A1, LOW);   
-  pinMode(A1, INPUT); 
-  delay(10); 
-  */
   pinMode(32, OUTPUT); 
   digitalWrite(32, HIGH);  
   buttons[3] = analogRead(34);
@@ -230,16 +198,6 @@ void loop()
   delay(10); 
 
   // Test bottom row
-  /*
-  pinMode(A2, OUTPUT); 
-  digitalWrite(A2, HIGH);  
-  buttons[6] = analogRead(A3);
-  buttons[7] = analogRead(A4);
-  buttons[8] = analogRead(A5);
-  digitalWrite(A2, LOW);   
-  pinMode(A2, INPUT); 
-  delay(10);
-  */
   pinMode(25, OUTPUT); 
   digitalWrite(25, HIGH);  
   buttons[6] = analogRead(34);
@@ -248,17 +206,23 @@ void loop()
   digitalWrite(25, LOW);   
   pinMode(25, INPUT); 
   delay(10);
+  */
 
-    for (int i = 0; i < 9; i++) {
-      if (buttons[i] > 100) {
-        //leds[i] = CHSV((i * 255 / 9), 255, 255);
+  //Change color if piece is over it
+  for (int x = 0; x < 3; x++)
+  {
+    for (int y = 0; y < 3; y++)
+    {
+      if (grid.GetPiecePlaced(x, y))
+      {
+        uint32_t color = 0xFF0000;
+        grid.SetLed(x, y, color);
       }
-      else {
-        //leds[i] = CRGB::Black;
+      else
+      {
+        uint32_t color = 0x0000FF;
+        grid.SetLed(x, y, color);
       }
     }
-
-  //FastLED.show();
-
-  delay(10);  // Small delay to avoid bouncing 
+  }
 }
