@@ -3,44 +3,45 @@
 
 #pragma once
 
-#include "Cell.hpp"
-#include "Color.hpp"
 #include <vector>
+#include <FastLED.h>
 
 class Grid
 {
 public:
-    //-----------Constructors-------------
-    //Default Constructor
-    Grid();
+  //-----------Constructors-------------
+  //Default Constructor
+  Grid();
 
-    //dimention: grid of size [dimention x dimention]
-    Grid(unsigned int dimention);
+  //dimention: grid of size [dimention x dimention]
+  Grid(unsigned int dimention);
 
-    //dimentionX, dimentionY: grid of size [dimentionX x dimentionY]
-    Grid(unsigned int dimentionX, unsigned int dimentionY);
+  //dimentionX, dimentionY: grid of size [dimentionX x dimentionY]
+  Grid(unsigned int dimentionX, unsigned int dimentionY);
 
-    //-----------Grid Interface------------
-    //All return true if successful
+  //-----------Grid Interface------------
+  //Input piece placement data from circuit and change Cell LEDs
+  void Update();
 
-    //Input piece placement data from circuit and change Cell LEDs
-    void Update();
+  //Change all Cell LEDs to Black
+  void ClearLeds();
 
-    //Change all Cell LEDs to Black
-    void ClearLeds();
+  //Set the color of a grid based on an RGB/HVS value
+  void SetColor(unsigned int x, unsigned int y, CRGB color);
+  void SetColor(unsigned int x, unsigned int y, CHSV color);
 
-    //Access Cell* from grid. Ex: grid(x, y)
-    Cell* operator()(unsigned int x, unsigned int y);
-    Cell* GetCell(unsigned int x, unsigned int y);
+  //Returns if a piece is placed on that location on the grid
+  bool GetPiecePlaced(unsigned int x, unsigned int y);
 
 private:
-    //-----------Helper Functions----------
-    void SetUpGrid();
+  //-----------Helper Functions----------
+  void SetUpGrid();
 
-    //-----------Parameters----------------
+  //-----------Parameters----------------
 private:
-    unsigned int dimX;
-    unsigned int dimY;
+  const unsigned int dimX;
+  const unsigned int dimY;
 
-    std::vector<std::vector<Cell>> grid;
+  std::vector<CRGB> leds;  // LED array
+  std::vector<std::vector<bool>> piecesPlaced;
 };

@@ -1,10 +1,12 @@
+#include <FastLED.h>
 #include <Adafruit_NeoPixel.h>
 #include <WiFiProvisioner.h>
-#include "LcdInterface.hpp"
-#include "Grid.hpp"
 #include <LiquidCrystal.h>
 #include <ArduinoMqttClient.h>
 #include <WiFi.h>
+
+#include "LcdInterface.hpp"
+#include "Grid.hpp"
 
 // To connect with SSL/TLS:
 // 1) Change WiFiClient to WiFiSSLClient.
@@ -29,8 +31,6 @@ int buttons[9] = {0};
 
 //LiquidCrystal lcd(31, 37, 30, 28, 27, 23);
 LiquidCrystal lcd(19, 23, 18, 17, 16, 15);
-
-//CRGB leds[9];  // LED array
 
 Grid grid;
 
