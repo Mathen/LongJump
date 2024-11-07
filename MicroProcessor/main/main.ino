@@ -34,8 +34,6 @@ Grid grid;
 
 void setup()
 {
-  // put your setup code here, to run once:
-
   //Pins being used
   //Set Pins not being used to input (to not accidently make a short)
   /*
@@ -97,9 +95,9 @@ void setup()
   // attempt to connect to WiFi network using provisioning:
   Serial.print("Resetting credentials...\n");
   //provisioner.setFactoryResetCallback(myFactoryResetCallback);
-  provisioner.AP_NAME = "Longjump";
-  provisioner.setupAccessPointAndServer();
-  provisioner.connectToWiFi();
+  //provisioner.AP_NAME = "Longjump";
+  //provisioner.setupAccessPointAndServer();
+  //provisioner.connectToWiFi();
 
   //Serial.println(ssid);
   /*
@@ -118,21 +116,25 @@ void setup()
 
   // You can provide a username and password for authentication
   // mqttClient.setUsernamePassword("username", "password");
-  delay(5000);
+  //delay(5000);
 
   Serial.print("Attempting to connect to the MQTT broker: ");
   Serial.println(broker);
 
+  /*
   if (!mqttClient.connect(broker, port)) {
     Serial.print("MQTT connection failed! Error code = ");
     Serial.println(mqttClient.connectError());
 
     while (1);
   }
+  */
 
   Serial.println("You're connected to the MQTT broker!");
   Serial.println();
 }
+
+bool buttons[9] = {false};
 
 void loop()
 {
@@ -141,7 +143,7 @@ void loop()
 
   // call poll() regularly to allow the library to send MQTT keep alives which
   // avoids being disconnected by the broker
-  mqttClient.poll();
+  //mqttClient.poll();
 
   // to avoid having delays in loop, we'll use the strategy from BlinkWithoutDelay
   // see: File -> Examples -> 02.Digital -> BlinkWithoutDelay for more info
@@ -150,78 +152,32 @@ void loop()
   if (currentMillis - previousMillis >= interval)
   {
 
-    mqttClient.beginMessage(topic);
-    mqttClient.print(count);
-    mqttClient.println();
-    for (int y = 0; y < 3; y++)
-    {
-      for (int x = 0; x < 3; x++)
-      {
-        if (grid.GetPiecePlaced(x, y))
-        {
-          mqttClient.print("1 ");
-        }
-        else
-        {
-          mqttClient.print("0 ");
-        }
-      }
-      mqttClient.println();
-    }
-    mqttClient.println();
-    mqttClient.endMessage();
+    //mqttClient.beginMessage(topic);
+    //mqttClient.println(count);
+    Serial.println(count);
+    Serial.println(grid.to_string().c_str());
+    //mqttClient.println(grid.to_string().c_str());
+    //mqttClient.endMessage();
 
     // save the last time a message was sent
     previousMillis = currentMillis;
     count++;
   }
 
-  /*
-  // Test top row
-  pinMode(33, OUTPUT); 
-  digitalWrite(33, HIGH);  
-  buttons[0] = analogRead(34);
-  buttons[1] = analogRead(39);
-  buttons[2] = analogRead(36);
-  digitalWrite(33, LOW);   
-  pinMode(33, INPUT);
-  delay(10);
-
-  // Test middle row
-  pinMode(32, OUTPUT); 
-  digitalWrite(32, HIGH);  
-  buttons[3] = analogRead(34);
-  buttons[4] = analogRead(39);
-  buttons[5] = analogRead(36);
-  digitalWrite(32, LOW);   
-  pinMode(32, INPUT); 
-  delay(10); 
-
-  // Test bottom row
-  pinMode(25, OUTPUT); 
-  digitalWrite(25, HIGH);  
-  buttons[6] = analogRead(34);
-  buttons[7] = analogRead(39);
-  buttons[8] = analogRead(36);
-  digitalWrite(25, LOW);   
-  pinMode(25, INPUT); 
-  delay(10);
-  */
-
   //Change color if piece is over it
   for (int x = 0; x < 3; x++)
   {
     for (int y = 0; y < 3; y++)
     {
-      if (grid.GetPiecePlaced(x, y))
+      if (buttons[x + y * 3])
       {
         uint32_t color = 0xFF0000;
-        grid.SetLed(x, y, color);
+        grid.SetColor(x, y, color);
       }
       else
       {
         uint32_t color = 0x0000FF;
-        grid.SetLed(x, y, color);
+        grid.SetColor(x, y, color);
       }
     }
   }

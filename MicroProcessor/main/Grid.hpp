@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <Adafruit_NeoPixel.h>
+#include <string>
 
 class Grid
 {
@@ -32,6 +33,9 @@ public:
 
   //Returns if a piece is placed on that location on the grid
   bool GetPiecePlaced(unsigned int x, unsigned int y);
+
+  //Returns a std::string for the 
+  std::string to_string();
 
 private:
   //-----------Helper Functions----------

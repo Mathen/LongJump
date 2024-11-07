@@ -18,7 +18,6 @@ void Grid::Update()
   //Leds
   leds.show();
 
-
   //Pins
   int outPins[3] = {33, 32, 25};
   int inPins[3] = {34, 39, 36};
@@ -42,7 +41,7 @@ void Grid::Update()
     delay(10); //10ms
     for (unsigned int x = 0; x < dimX; x++)
     {
-      piecesPlaced[x][y] = digitalRead(inPins[y]) == HIGH;
+      piecesPlaced[x][y] = analogRead(inPins[x]);
     }
   }
 }
@@ -77,6 +76,27 @@ bool Grid::GetPiecePlaced(unsigned int x, unsigned int y)
     return false;
   else
     return piecesPlaced[x][y];
+}
+
+std::string Grid::to_string()
+{
+  std::string s;
+  for (int y = 0; y < 3; y++)
+  {
+    for (int x = 0; x < 3; x++)
+    {
+      if (piecesPlaced[x][y])
+      {
+        s += "1 ";
+      }
+      else
+      {
+        s += "0 ";
+      }
+    }
+    s += '\n';
+  }
+  return s;
 }
 
 void Grid::SetUpGrid()
