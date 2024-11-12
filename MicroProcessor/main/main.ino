@@ -30,6 +30,11 @@ int count = 0;
 //LiquidCrystal lcd(31, 37, 30, 28, 27, 23);
 LiquidCrystal lcd(19, 23, 18, 17, 16, 15);
 
+#define LED_PIN     22
+#define NUM_LEDS    9
+
+//Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
+
 Grid grid;
 
 void setup()
@@ -61,6 +66,7 @@ void setup()
   pinMode(A5, INPUT);   //  In: grid piece placement col[2]
 */
   // ESP32
+  //pinMode(6, OUTPUT);   // Out: LED strip data
   pinMode(33, OUTPUT);  // Out: grid piece placement row[0] //20
   pinMode(32, OUTPUT);  // Out: grid piece placement row[1] //21
   pinMode(25, OUTPUT);  // Out: grid piece placement row[2] //22
@@ -132,6 +138,13 @@ void setup()
 
   Serial.println("You're connected to the MQTT broker!");
   Serial.println();
+
+  // Initialize the NeoPixel strip
+  /*
+  strip.begin();
+  strip.setBrightness(100);
+  strip.show(); // Initialize all pixels to 'off'
+  */
 }
 
 bool buttons[9] = {false};
@@ -172,13 +185,30 @@ void loop()
       if (buttons[x + y * 3])
       {
         uint32_t color = 0xFF0000;
+        //leds.setPixelColor(i, leds.Color(255, 0, 0));
         grid.SetColor(x, y, color);
       }
       else
       {
         uint32_t color = 0x0000FF;
+        //leds.setPixelColor(i, leds.Color(0, 0, 255));
         grid.SetColor(x, y, color);
       }
     }
+/*
+  for (int x = 0; x < 3; x++) {
+    for (int y = 0; y < 3; y++) {
+      int i = x + y * 3;  // Calculate the index for each LED
+
+      if (buttons[i]) {
+        strip.setPixelColor(i, strip.Color(255, 0, 0)); // Set to red if button is pressed
+      }
+      else {
+        strip.setPixelColor(i, strip.Color(0, 0, 255)); // Set to blue if button is not pressed
+      }
+    }
   }
+*/
+  //strip.show();  // Update all LEDs at once after setting their colors
+
 }

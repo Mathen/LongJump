@@ -101,7 +101,8 @@ std::string Grid::to_string()
 
 void Grid::SetUpGrid()
 {
-  leds.setPin(13);
+  //leds = Adafruit_NeoPixel(dimX * dimY, 22, NEO_GRB + NEO_KHZ800);
+  leds.setPin(22);
   leds.updateLength(dimX * dimY);
   leds.setBrightness(0xFF);
 
