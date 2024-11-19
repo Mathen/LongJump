@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MQTT Messages</title>
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+  <style>
+    #message-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-gap: 5px; /* Gap between cells */
+      margin: 0 auto;
+      max-width: 374.8px; /* Set a maximum width for the grid */ 
+    }
+    .message-cell {
+      border: 1px solid black; /* Black lines outlining the cells */
+      height: 100px; /* Set a fixed height for each cell */
+      width: 100px; /* Set a fixed width for each cell */
+      padding: 10px;
+      text-align: center; /* Center the text */
+      display: flex; /* Enable flexbox for centering content */
+      align-items: center; /* Center vertically */
+      justify-content: center; /* Center horizontally */
+    }
+  </style>
+</head>
+<body>
+  <div style="text-align: center;">
+    <h1>Longjump Games</h1>
+    <p>Start up your game board and follow its instructions!</p>
+    <p>When you are ready, enter your assigned board ID below and select whether you are HOST or GUEST.</p>
+    
+    <label for="bid-input">Enter Your Board ID:</label>
+    <input type="text" id="bid-input" name="bid-input" maxlength="20" placeholder="Example Board ID">
+
+    <p><button id="host-button" title="The HOST will wait for a GUEST to join their game" style="color: blue">HOST</button> or 
+      <button id="guest-button" title="The GUEST will join a game that the HOST has already set up" style="color: red">GUEST</button></p>
+    
+    <p>You are <span id="host-or-guest">???</span></p>
+    
+    <p>Your Board ID is <span id="boardID">???</span></p>
+
+  </div>
+
+  <div id="message-container">
+    <!-- Initialize the grid with empty cells -->
+    <div class="message-cell"><img id="r1c1" src="x.png" alt="X" width="75"></div>
+    <div class="message-cell"><img id="r1c2" src="o.svg" alt="O" width="75"></div>
+    <div class="message-cell"><img id="r1c3" src="x.png" alt="X" width="75"></div>
+    <div class="message-cell"><img id="r2c1" src="o.svg" alt="O" width="75"></div>
+    <div class="message-cell"><img id="r2c2" src="o.svg" alt="O" width="75"></div>
+    <div class="message-cell"><img id="r2c3" src="x.png" alt="X" width="75"></div>
+    <div class="message-cell"><img id="r3c1" src="x.png" alt="X" width="75"></div>
+    <div class="message-cell"><img id="r3c2" src="x.png" alt="X" width="75"></div>
+    <div class="message-cell"><img id="r3c3" src="o.svg" alt="O" width="75"></div>
+  </div> 
+
+  <script>
+    let isHost = 0;
+    let userBID = "";
+
+    const buttonHost = document.getElementById('host-button');
+    const buttonGuest = document.getElementById('guest-button');
+    const bidInput = document.getElementById('bid-input');
+
+    const bidDisplay = document.getElementById('boardID');
+    const hgDisplay = document.getElementById('host-or-guest');
+
+    buttonHost.addEventListener('click', () => {
+      isHost = 1; // Change isHost's value
+      hgDisplay.textContent = "HOST"; // Update the displayed value on host-or-guest
+      console.log('Updated isHost value:', isHost); // Log the updated variable value to the console
+    });
+
+    buttonGuest.addEventListener('click', () => {
+      isHost = 0; // Change isHost's value
+      hgDisplay.textContent = "GUEST"; // Update the displayed value on host-or-guest
+      console.log('Updated isHost value:', isHost); // Log the updated variable value to the console
+    });
+
+    bidInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        userBID = `${bidInput.value}` // Change userBID's value
+        bidDisplay.textContent = userBID; // Update the displayed value on boardID
+        console.log('Updated userBID value:', userBID); // Log the updated variable value to the console
+      }
+    });
+
+    const socket = io({ 
+      path: '/socket.io/', // Important: Match server configuration
+      transports: ['websocket', 'polling'] // Use both for compatibility
+    });
+
+    socket.on('connect', () => {
+      console.log('Connected to Socket.IO server');
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket.IO connection error:', error);
+    });
+
+    let messages = []; // Array to store received messages
+
+    socket.on('mqtt-message', (data) => {
+      console.log('Received MQTT message:', data);
+      messages.push(`Topic: ${data.topic}, Message: ${data.data}`);
+
+      // Check if we have collected 9 messages
+      if (messages.length === 9) {
+        displayMessages(); // Display messages in a grid
+        messages = []; // Reset messages array for the next batch
+      }
+    });
+
+    function displayMessages() {
+      const messageContainer = document.getElementById('message-container');
+
+      // Clear previous messages while keeping the grid structure
+      const cells = messageContainer.getElementsByClassName('message-cell');
+      for (let i = 0; i < cells.length; i++) {
+        cells[i].textContent = ''; // Clear cell content
+      }
+
+      messages.forEach((message, index) => {
+        if (index < cells.length) { // Ensure we don't exceed the cell limit
+          cells[index].textContent = message; // Set message text
+        }
+      });
+    }
+  </script>
+</body>
+</html>
