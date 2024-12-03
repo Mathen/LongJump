@@ -1,131 +1,278 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>MQTT Messages</title>
-  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+  <title>Longjump</title>
+  <!--<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>-->
   <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 20px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+    }
+
+    ol {
+      margin: 20px auto;
+      padding: 10px 20px;
+      max-width: 600px;
+      text-align: left;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background-color: #f9f9f9;
+      list-style-position: inside;
+    }
+
+    ol li {
+      margin-bottom: 10px;
+    }
+
+    #input-section {
+      margin: 20px 0;
+    }
+
+    #bid-input {
+      margin: 10px 0;
+      padding: 8px;
+      width: 200px;
+      font-size: 1rem;
+    }
+
+    button {
+      padding: 10px 15px;
+      font-size: 1rem;
+      margin: 5px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+    }
+
+    #host-button {
+      background-color: #007bff;
+      color: white;
+    }
+
+    #guest-button {
+      background-color: #dc3545;
+      color: white;
+    }
+
     #message-container {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      grid-gap: 5px; /* Gap between cells */
-      margin: 0 auto;
-      max-width: 374.8px; /* Set a maximum width for the grid */ 
+      grid-gap: 5px;
+      margin: 20px auto;
+      max-width: 374.8px;
     }
+
+    #waiting-message {
+            color: green;
+            margin-top: 10px;
+            display: none;
+    }
+
     .message-cell {
-      border: 1px solid black; /* Black lines outlining the cells */
-      height: 100px; /* Set a fixed height for each cell */
-      width: 100px; /* Set a fixed width for each cell */
-      padding: 10px;
-      text-align: center; /* Center the text */
-      display: flex; /* Enable flexbox for centering content */
-      align-items: center; /* Center vertically */
-      justify-content: center; /* Center horizontally */
+      border: 1px solid black;
+      height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .message-cell img {
+      max-width: 75%;
+    }
+
+    #host-input-section {
+      display: none;
+      margin: 20px 0;
+    }
+
+    #guest-request-section {
+      display: none;
+      margin: 20px 0;
     }
   </style>
 </head>
 <body>
-  <div style="text-align: center;">
-    <h1>Longjump Games</h1>
-    <p>Start up your game board and follow its instructions!</p>
-    <p>When you are ready, enter your assigned board ID below and select whether you are HOST or GUEST.</p>
-    
-    <label for="bid-input">Enter Your Board ID:</label>
-    <input type="text" id="bid-input" name="bid-input" maxlength="20" placeholder="Example Board ID">
+  <h1>Longjump</h1>
 
-    <p><button id="host-button" title="The HOST will wait for a GUEST to join their game" style="color: blue">HOST</button> or 
-      <button id="guest-button" title="The GUEST will join a game that the HOST has already set up" style="color: red">GUEST</button></p>
+  <h2>How to Connect Your Longjump Board to Wi-Fi:</h2>
+  <ol>
+    <li>With the board powered on, a wireless network called "<strong>Longjump</strong>" is created. Join this network using a phone or laptop.</li>
+    <li>Once connected, your browser should open to a page that shows the list of available networks. <strong>Note:</strong> The board is only compatible with 2.4 GHz Wi-Fi networks.</li>
+    <li>Select your network and enter its password, then click "<strong>Connect</strong>".</li>
+    <li>If you see the green check mark, your board is connected to the internet!</li>
+    <li>The LCD should now display the board's ID for use on this website.</li>
+  </ol>
+
+      
+<div id="input-section">
+    <p>After completing the above steps, enter your assigned board ID below and select whether you are HOST or GUEST.</p>
+    <label for="bid-input">Enter Your Board ID:</label><br>
+    <input type="text" id="bid-input" maxlength="6" placeholder="6-digit Board ID"><br>
+    <span id="error-message" style="color: red; visibility: hidden;"></span><br>
+
+    <button id="host-button">HOST</button>
+    <button id="guest-button">GUEST</button>
     
     <p>You are <span id="host-or-guest">???</span></p>
-    
     <p>Your Board ID is <span id="boardID">???</span></p>
+    <p id="game-starting-message" style="color: green; display: none;">Game starting!</p>
+    <p id="waiting-message">Waiting for guest...</p>
 
+    <div id="host-input-section">
+      <label for="host-id-input">Enter Host Board ID:</label><br>
+      <input type="text" id="host-id-input" maxlength="6" placeholder="6-digit Host ID"><br>
+      <button id="connect-button">Connect to Host</button>
+    </div>
+</div>
+
+<div id="guest-request-section">
+    <p>Guest <span id="requesting-guest-id"></span> wants to connect.</p>
+    <button id="accept-request">Accept</button>
+    <button id="reject-request">Reject</button>
+</div>
+
+    
+  <div id="message-container">
+    <div class="message-cell"></div>
+    <div class="message-cell"></div>
+    <div class="message-cell"></div>
+    <div class="message-cell"></div>
+    <div class="message-cell"></div>
+    <div class="message-cell"></div>
+    <div class="message-cell"></div>
+    <div class="message-cell"></div>
+    <div class="message-cell"></div>
   </div>
 
-  <div id="message-container">
-    <!-- Initialize the grid with empty cells -->
-    <div class="message-cell"><img id="r1c1" src="x.png" alt="X" width="75"></div>
-    <div class="message-cell"><img id="r1c2" src="o.svg" alt="O" width="75"></div>
-    <div class="message-cell"><img id="r1c3" src="x.png" alt="X" width="75"></div>
-    <div class="message-cell"><img id="r2c1" src="o.svg" alt="O" width="75"></div>
-    <div class="message-cell"><img id="r2c2" src="o.svg" alt="O" width="75"></div>
-    <div class="message-cell"><img id="r2c3" src="x.png" alt="X" width="75"></div>
-    <div class="message-cell"><img id="r3c1" src="x.png" alt="X" width="75"></div>
-    <div class="message-cell"><img id="r3c2" src="x.png" alt="X" width="75"></div>
-    <div class="message-cell"><img id="r3c3" src="o.svg" alt="O" width="75"></div>
-  </div> 
-
+  <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
   <script>
-    let isHost = 0;
+    let isHost = false;
     let userBID = "";
+    const client = mqtt.connect('wss://longjump.ip-dynamic.org/mqtt');
 
-    const buttonHost = document.getElementById('host-button');
-    const buttonGuest = document.getElementById('guest-button');
     const bidInput = document.getElementById('bid-input');
+    const hostButton = document.getElementById('host-button');
+    const guestButton = document.getElementById('guest-button');
+    const waitingMessage = document.getElementById('waiting-message');
+    const errorMessage = document.getElementById('error-message');
+    const hostInputSection = document.getElementById('host-input-section');
+    const hostIDInput = document.getElementById('host-id-input');
+    const connectButton = document.getElementById('connect-button');
+    const guestRequestSection = document.getElementById('guest-request-section');
+    const requestingGuestIDSpan = document.getElementById('requesting-guest-id');
+    const acceptRequestButton = document.getElementById('accept-request');
+    const rejectRequestButton = document.getElementById('reject-request');
 
-    const bidDisplay = document.getElementById('boardID');
-    const hgDisplay = document.getElementById('host-or-guest');
-
-    buttonHost.addEventListener('click', () => {
-      isHost = 1; // Change isHost's value
-      hgDisplay.textContent = "HOST"; // Update the displayed value on host-or-guest
-      console.log('Updated isHost value:', isHost); // Log the updated variable value to the console
-    });
-
-    buttonGuest.addEventListener('click', () => {
-      isHost = 0; // Change isHost's value
-      hgDisplay.textContent = "GUEST"; // Update the displayed value on host-or-guest
-      console.log('Updated isHost value:', isHost); // Log the updated variable value to the console
-    });
-
-    bidInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        userBID = `${bidInput.value}` // Change userBID's value
-        bidDisplay.textContent = userBID; // Update the displayed value on boardID
-        console.log('Updated userBID value:', userBID); // Log the updated variable value to the console
+    function validateBoardID() {
+      const input = bidInput.value.trim();
+      if (/^\d{6}$/.test(input)) {
+        userBID = input;
+        document.getElementById('boardID').textContent = userBID;
+        errorMessage.style.visibility = 'hidden';
+        return true;
+      } else {
+        errorMessage.style.visibility = 'visible';
+        return false;
       }
-    });
-
-    const socket = io({ 
-      path: '/socket.io/', // Important: Match server configuration
-      transports: ['websocket', 'polling'] // Use both for compatibility
-    });
-
-    socket.on('connect', () => {
-      console.log('Connected to Socket.IO server');
-    });
-
-    socket.on('connect_error', (error) => {
-      console.error('Socket.IO connection error:', error);
-    });
-
-    let messages = []; // Array to store received messages
-
-    socket.on('mqtt-message', (data) => {
-      console.log('Received MQTT message:', data);
-      messages.push(`Topic: ${data.topic}, Message: ${data.data}`);
-
-      // Check if we have collected 9 messages
-      if (messages.length === 9) {
-        displayMessages(); // Display messages in a grid
-        messages = []; // Reset messages array for the next batch
-      }
-    });
-
-    function displayMessages() {
-      const messageContainer = document.getElementById('message-container');
-
-      // Clear previous messages while keeping the grid structure
-      const cells = messageContainer.getElementsByClassName('message-cell');
-      for (let i = 0; i < cells.length; i++) {
-        cells[i].textContent = ''; // Clear cell content
-      }
-
-      messages.forEach((message, index) => {
-        if (index < cells.length) { // Ensure we don't exceed the cell limit
-          cells[index].textContent = message; // Set message text
-        }
-      });
     }
+
+    function sendRoleToServer(role, hostID = null) {
+      if (validateBoardID()) {
+        const message = { boardID: userBID, role: role };
+        if (hostID) {
+          message.hostID = hostID;
+        }
+        client.publish('frontend/to/server', JSON.stringify(message));
+        client.subscribe(`server/to/frontend/${userBID}`);
+	client.subscribe(`server/to/host/${userBID}`);
+      }
+    }
+
+    function sendHostResponse(decision, guestID) {
+      client.publish('frontend/to/server/host_response', JSON.stringify({ hostID: userBID, decision: decision, guestID: guestID }));
+    }
+
+    client.on('connect', () => {
+      console.log("Connected to MQTT broker");
+    });
+
+client.on('message', (topic, message) => {
+    const serverMessage = JSON.parse(message.toString());
+
+    if (topic === `server/to/frontend/${userBID}`) {
+        if (serverMessage.error) {
+            errorMessage.style.visibility = 'visible';
+            errorMessage.textContent = serverMessage.error;
+            waitingMessage.style.display = 'none';
+            console.error(serverMessage.error);
+        } else if (serverMessage.message) {
+            if(serverMessage.message === "Host ID validated") {
+                waitingMessage.style.display = 'block';
+            } else if (serverMessage.message === "Guest ID validated. Please enter host ID.") {
+              hostInputSection.style.display = 'block';
+            } else {
+                waitingMessage.style.display = 'block';  
+                waitingMessage.textContent = serverMessage.message;
+            }
+        }
+    } else if (topic === `server/to/host/${userBID}` && isHost) {
+        guestRequestSection.style.display = 'block';
+        requestingGuestIDSpan.textContent = serverMessage.guestID;
+        waitingMessage.style.display = 'none';
+    }
+});
+
+hostButton.addEventListener('click', () => {
+  if (validateBoardID()) {
+    isHost = true;
+    document.getElementById('host-or-guest').textContent = 'HOST';
+    waitingMessage.style.display = 'none';
+    sendRoleToServer('host');
+  }
+});
+
+    guestButton.addEventListener('click', () => {
+      if (validateBoardID()) {
+        isHost = false;
+        document.getElementById('host-or-guest').textContent = 'GUEST';
+        waitingMessage.style.display = 'none';
+        sendRoleToServer('guest');
+        errorMessage.textContent = '';
+      }
+    });
+
+    connectButton.addEventListener('click', () => {
+      const hostID = hostIDInput.value.trim();
+      if (/^\d{6}$/.test(hostID)) {
+        sendRoleToServer('connect', hostID);
+        errorMessage.textContent = '';
+      } else {
+        errorMessage.textContent = "Invalid Host ID";
+        errorMessage.style.visibility = 'visible';
+      }
+    });
+
+acceptRequestButton.addEventListener('click', () => {
+    sendHostResponse('accept', requestingGuestIDSpan.textContent);
+    guestRequestSection.style.display = 'none';
+
+    // Display "Game starting!" message
+    const gameStartingMessage = document.getElementById('game-starting-message');
+    gameStartingMessage.style.display = 'block';
+});
+
+    rejectRequestButton.addEventListener('click', () => {
+        sendHostResponse('reject', requestingGuestIDSpan.textContent);
+        guestRequestSection.style.display = 'none';
+    });
+
   </script>
 </body>
 </html>
