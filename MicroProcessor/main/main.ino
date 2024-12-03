@@ -1,214 +1,311 @@
-//#include <FastLED.h>
 #include <Adafruit_NeoPixel.h>
 #include <WiFiProvisioner.h>
 #include <LiquidCrystal.h>
 #include <ArduinoMqttClient.h>
+#include <ArduinoJson.h>
 #include <WiFi.h>
 
-#include "LcdInterface.hpp"
-#include "Grid.hpp"
 
-// To connect with SSL/TLS:
-// 1) Change WiFiClient to WiFiSSLClient.
-// 2) Change port value from 1883 to 8883.
-// 3) Change broker value to a server with a known SSL/TLS root certificate 
-//    flashed in the WiFi module.
+#define NUM_LEDS  9
+#define LED_PIN   23
+
+#define ROW0      18
+#define ROW1      4
+#define ROW2      19
+
+#define COL0      34
+#define COL1      35
+#define COL2      32
+
+int tiles[9] = {0};
+int latestPiece = -1;
+char serverBoard[9] = {0};
+bool isHost = 0;
+
+const char broker[] = "longjump.ip-dynamic.org";
+int        port     = 1883;
+const char server_topic[] = "boards/to/server";
+const char send_to_guest_topic[] = "server/from/board";
+int boardID = 0;
 
 WiFiProvisioner::WiFiProvisioner provisioner;
 WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
+// RS, E, D4, D5, D6, D7
+LiquidCrystal lcd(33, 25, 26, 27, 14, 13);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
 
-const char broker[] = "longjump.ip-dynamic.org";
-int        port     = 1883;
-const char topic[]  = "board1/to/board2";
+void setup() {
+  // Generate random 6-digit board ID
+  randomSeed(analogRead(A0)); 
+  boardID = random(100000, 1000000);
+  pinMode(ROW0, OUTPUT);
+  pinMode(ROW1, OUTPUT);
+  pinMode(ROW2, OUTPUT);
 
-const long interval = 1000;
-unsigned long previousMillis = 0;
+  pinMode(COL0, INPUT);
+  pinMode(COL1, INPUT);
+  pinMode(COL2, INPUT);
 
-int count = 0;
+  pinMode(22, INPUT_PULLUP);
 
-//LiquidCrystal lcd(31, 37, 30, 28, 27, 23);
-LiquidCrystal lcd(19, 23, 18, 17, 16, 15);
+  strip.begin();
+  strip.setBrightness(100);
 
-#define LED_PIN     22
-#define NUM_LEDS    9
-
-//Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
-
-Grid grid;
-
-void setup()
-{
-  //Pins being used
-  //Set Pins not being used to input (to not accidently make a short)
-  /*
-  pinMode( 0, OUTPUT);  // None
-  pinMode( 1, OUTPUT);  // None
-  pinMode( 2, OUTPUT);  // None
-  pinMode( 3, INPUT);   // None
-  pinMode( 4, INPUT);   // None
-  pinMode( 5, INPUT);   // None
-  pinMode( 6, INPUT);   // None
-  pinMode( 7, INPUT);   // None
-  pinMode( 8, INPUT);   // None
-  pinMode( 9, INPUT);   // None
-  pinMode(10, INPUT);   // None
-  pinMode(11, INPUT);   // None
-  pinMode(12, INPUT);   // None
-  pinMode(13, INPUT);   // None
-  */
-  /*
-  pinMode(A0, OUTPUT);  // Out: grid piece placement row[0] 
-  pinMode(A1, OUTPUT);  // Out: grid piece placement row[1]
-  pinMode(A2, OUTPUT);  // Out: grid piece placement row[2]
-  pinMode(A3, INPUT);   //  In: grid piece placement col[0]
-  pinMode(A4, INPUT);   //  In: grid piece placement col[1]
-  pinMode(A5, INPUT);   //  In: grid piece placement col[2]
-*/
-  // ESP32
-  //pinMode(6, OUTPUT);   // Out: LED strip data
-  pinMode(33, OUTPUT);  // Out: grid piece placement row[0] //20
-  pinMode(32, OUTPUT);  // Out: grid piece placement row[1] //21
-  pinMode(25, OUTPUT);  // Out: grid piece placement row[2] //22
-  pinMode(34, INPUT);   //  In: grid piece placement col[0] //23
-  pinMode(39, INPUT);   //  In: grid piece placement col[1] //24
-  pinMode(36, INPUT);   //  In: grid piece placement col[2] //25
-
-  // Initialize LEDs
-  //FastLED.addLeds<WS2812, 13, GRB>(leds, 9);
-  //FastLED.setBrightness(50);
-  // LCD init
-  //Grid
-  grid = Grid(3);
-  
-
-  //Initialize serial and wait for port to open:
-  Serial.begin(9600);
+  Serial.begin(115200);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
 
+  strip.clear();
+
+  analogReadResolution(12);
+
   Serial.print("LCD init\n");
   lcd.begin(16, 2);
-  // Print a message to the LCD.
-  lcd.print("Welcome! Go to:");
-  // Move to bottom row
-  lcd.setCursor(0,1);
-  lcd.print("t.ly/h7NLS");
-  Serial.print("Complete!\n");
-  //delay(5000);
+  lcd.print("Go to:t.ly/h7NLS");
+  lcd.setCursor(0, 1);
+  lcd.print("ID: ");
+  lcd.print(boardID);
 
-  // attempt to connect to WiFi network using provisioning:
+  Serial.print("Complete!\n");
+
+  // WiFi initialization through provisioning
   Serial.print("Resetting credentials...\n");
   //provisioner.setFactoryResetCallback(myFactoryResetCallback);
-  //provisioner.AP_NAME = "Longjump";
-  //provisioner.setupAccessPointAndServer();
-  //provisioner.connectToWiFi();
-
-  //Serial.println(ssid);
-  /*
-  while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
-    // failed, retry
-    Serial.print(".");
-    delay(5000);
-  }*/
+  char boardSSID[32];
+  snprintf(boardSSID, sizeof(boardSSID), "Longjump-%d", boardID);
+  provisioner.AP_NAME = boardSSID;
+  provisioner.setupAccessPointAndServer();
+  provisioner.connectToWiFi();
 
   Serial.println("You're connected to the network\n");
   Serial.println();
 
-  // You can provide a unique client ID, if not set the library uses Arduino-millis()
-  // Each client must have a unique client ID
-  // mqttClient.setId("clientId");
-
-  // You can provide a username and password for authentication
-  // mqttClient.setUsernamePassword("username", "password");
-  //delay(5000);
-
   Serial.print("Attempting to connect to the MQTT broker: ");
   Serial.println(broker);
 
-  /*
+
   if (!mqttClient.connect(broker, port)) {
     Serial.print("MQTT connection failed! Error code = ");
     Serial.println(mqttClient.connectError());
 
     while (1);
   }
-  */
 
   Serial.println("You're connected to the MQTT broker!");
   Serial.println();
 
-  // Initialize the NeoPixel strip
-  /*
-  strip.begin();
-  strip.setBrightness(100);
-  strip.show(); // Initialize all pixels to 'off'
-  */
+  Serial.println("Sending board ID to boards/to/server");
+  Serial.println(boardID);
+  mqttClient.beginMessage(server_topic);
+  mqttClient.println(boardID);
+  mqttClient.endMessage();
+
+  // Connect to board-specific MQTT topic "board/boardID"
+  char boardTopic[32];
+  snprintf(boardTopic, sizeof(boardTopic), "board/%d", boardID);
+
+  if (!mqttClient.subscribe(boardTopic)) {
+      Serial.println("Failed to subscribe to topic");
+  } else {
+    Serial.print("Subscribed to topic: ");
+    Serial.println(boardTopic);
+  }
 }
 
-bool buttons[9] = {false};
+void sendMoveToServer(int position) {
+  // TODO
+}
 
-void loop()
-{
-  //Update the inputs and outputs the state of the grid to the board
-  grid.Update();
+void handleStartGame(const String &payload) {
+    StaticJsonDocument<256> doc;
+    DeserializationError error = deserializeJson(doc, payload);
 
-  // call poll() regularly to allow the library to send MQTT keep alives which
-  // avoids being disconnected by the broker
-  //mqttClient.poll();
+    if (error) {
+        Serial.print("JSON deserialization failed: ");
+        Serial.println(error.c_str());
+        return;
+    }
 
-  // to avoid having delays in loop, we'll use the strategy from BlinkWithoutDelay
-  // see: File -> Examples -> 02.Digital -> BlinkWithoutDelay for more info
-  unsigned long currentMillis = millis();
-  
-  if (currentMillis - previousMillis >= interval)
-  {
+    const char* command = doc["command"];
 
-    //mqttClient.beginMessage(topic);
-    //mqttClient.println(count);
-    Serial.println(count);
-    Serial.println(grid.to_string().c_str());
-    //mqttClient.println(grid.to_string().c_str());
-    //mqttClient.endMessage();
+    if (!command) {
+        Serial.println("Command not found in payload");
+        return;
+    }
 
-    // save the last time a message was sent
-    previousMillis = currentMillis;
-    count++;
+    if (strcmp(command, "start_host") == 0) {
+        Serial.println("Game Start: You are the host.");
+        lcd.clear();
+        isHost = 1;
+        lcd.setCursor(0, 0);
+        lcd.print("Your turn!");
+    } else if (strcmp(command, "start_guest") == 0) {
+        Serial.println("Game Start: You are the guest.");
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Waiting for");
+        lcd.setCursor(0, 1);
+        lcd.print("host...");
+
+        isHost = 0;
+    } else {
+        Serial.print("Unknown command: ");
+        Serial.println(command);
+    }
+}
+
+/*
+void handleMove(const String &payload) {
+    // Unpack received data from host board
+    // Display to board LEDs
+    // YOUR CODE HERE
+}
+*/
+
+void handleMove(const String &payload) {
+    StaticJsonDocument<256> doc;
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (error) {
+        Serial.print("JSON deserialization failed: ");
+        Serial.println(error.c_str());
+        return;
+    }
+
+    // Expecting payload to contain the board state as an array
+    JsonArray boardState = doc["boardState"];
+    if (!boardState) {
+        Serial.println("Board state not found in payload.");
+        return;
+    }
+
+    // Update LEDs based on received board state
+    for (int i = 0; i < NUM_LEDS; i++) {
+        if (boardState[i] == 1) {
+            strip.setPixelColor(i, strip.Color(255, 0, 0));
+        } else if (boardState[i] == 2) {
+            strip.setPixelColor(i, strip.Color(0, 255, 0));
+        } else {
+            strip.setPixelColor(i, strip.Color(0, 0, 0));
+        }
+    }
+    strip.show();
+}
+
+void loop() {
+  int messageSize = mqttClient.parseMessage();
+  if (messageSize) {
+      //Serial.println("Message received");
+      String topic = mqttClient.messageTopic();
+      String payload = "";
+
+      // Read the message payload
+      while (mqttClient.available()) {
+          payload += (char)mqttClient.read();
+      }
+
+      Serial.print("Received a message with topic: ");
+      Serial.println(topic);
+      Serial.print("Payload: ");
+      Serial.println(payload);
+
+      // Delegate handling based on topic
+      if (topic.startsWith("board/")) {
+          //Serial.println("Command received");
+          if (payload.indexOf("start") != -1) {
+              Serial.println("Start command received");
+              handleStartGame(payload);
+          } else if (payload.indexOf("boardState") != -1) {
+              Serial.println("Move command received");
+              handleMove(payload);
+          } else {
+              Serial.println("Unknown command in board message.");
+          }
+      } else {
+          Serial.println("Unhandled topic.");
+      }
   }
 
-  //Change color if piece is over it
-  for (int x = 0; x < 3; x++)
-  {
-    for (int y = 0; y < 3; y++)
-    {
-      if (buttons[x + y * 3])
-      {
-        uint32_t color = 0xFF0000;
-        //leds.setPixelColor(i, leds.Color(255, 0, 0));
-        grid.SetColor(x, y, color);
-      }
-      else
-      {
-        uint32_t color = 0x0000FF;
-        //leds.setPixelColor(i, leds.Color(0, 0, 255));
-        grid.SetColor(x, y, color);
-      }
-    }
-/*
-  for (int x = 0; x < 3; x++) {
-    for (int y = 0; y < 3; y++) {
-      int i = x + y * 3;  // Calculate the index for each LED
+  // ROW 0
+  digitalWrite(ROW0, LOW);
+  digitalWrite(ROW1, HIGH);
+  digitalWrite(ROW2, HIGH);
 
-      if (buttons[i]) {
-        strip.setPixelColor(i, strip.Color(255, 0, 0)); // Set to red if button is pressed
+  tiles[0] = analogRead(COL0);
+  tiles[1] = analogRead(COL1);
+  tiles[2] = analogRead(COL2);
+  delay(5);
+
+  // ROW1
+  digitalWrite(ROW0, HIGH);
+  digitalWrite(ROW1, LOW);
+  digitalWrite(ROW2, HIGH);
+
+  tiles[5] = analogRead(COL0);
+  tiles[4] = analogRead(COL1);
+  tiles[3] = analogRead(COL2);
+  delay(5);
+
+  // ROW2
+  digitalWrite(ROW0, HIGH);
+  digitalWrite(ROW1, HIGH);
+  digitalWrite(ROW2, LOW);
+
+  tiles[6] = analogRead(COL0);
+  tiles[7] = analogRead(COL1);
+  tiles[8] = analogRead(COL2);
+/*
+  if (isHost) {
+    // Send current board state to server on send_to_guest_topic[]
+    // YOUR CODE HERE
+
+    // Update LEDs based on analog values
+    for (int i = 0; i < NUM_LEDS; i++) {
+      if (tiles[i] < 200) {
+        // Set LED to Red
+        strip.setPixelColor(i, strip.Color(255, 0, 0)); 
       }
       else {
-        strip.setPixelColor(i, strip.Color(0, 0, 255)); // Set to blue if button is not pressed
+        // Set LED to Black (off)
+        strip.setPixelColor(i, strip.Color(0, 0, 0));
       }
     }
+    strip.show();  // Update the LEDs with new colors
   }
-*/
-  //strip.show();  // Update all LEDs at once after setting their colors
+  */
 
+  if (isHost) {
+      // Prepare the board state to send
+      StaticJsonDocument<256> doc;
+      doc["playerID"] = boardID;  // Add the unique host ID
+      JsonArray boardState = doc.createNestedArray("boardState");
+
+      // Update host LEDs and prepare the state for publishing
+      for (int i = 0; i < NUM_LEDS; i++) {
+          if (tiles[i] < 200) {
+              // Set LED to Red and add to board state
+              strip.setPixelColor(i, strip.Color(255, 0, 0)); 
+              boardState.add(1);  // Example: 1 for active
+          } else {
+              // Set LED to Black (off) and add to board state
+              strip.setPixelColor(i, strip.Color(0, 0, 0));
+              boardState.add(0);  // Example: 0 for inactive
+          }
+      }
+
+      // Show the updated LED state on the host
+      strip.show();
+
+      // Publish the board state to the server
+      char jsonBuffer[256];
+      size_t len = serializeJson(doc, jsonBuffer, sizeof(jsonBuffer));
+      mqttClient.beginMessage(send_to_guest_topic);
+      mqttClient.write((const uint8_t*)jsonBuffer, len);
+      mqttClient.endMessage();
+
+  }
+
+  delay(100);
 }
