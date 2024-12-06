@@ -56,8 +56,9 @@ Currently we have relased our prototype build with features listed below. To con
 ### Bugs/Known issues
 - The board mirroring the other board is only one directional currently. So the recieving board doesn't transmit it's state to the other board.
 - Piece placement
-  - ???Connections are being read through the analog ports on the arduino, so the data comes in as anolog values (and needs to be converted) instead of digital 0/1.
+  - Connections are being read through the analog ports on the arduino, so the data comes in as anolog values (and needs to be converted) instead of digital 0/1.
   - Because there is no shell/case above the circitry yet, pieces tend to fall off the sensor when placed on the board so they must be held for the sensor to detect the piece.
 - Confirm button on the board not currently implimented in code. Currently board state is sent at around 10Hz to server. 
 - The board doesn't complete setup until there is a network connection, so other board functionality can't be tested on the board without an established connecting.
 - If Wi-Fi is disconnected during active MQTT transmission, no error message is displayed via serial and the Arduino still attempts to send messages.
+- Website must be reloaded to start a new game, visual bugs result if trying to start a new session after one has already been started without refreshing.
