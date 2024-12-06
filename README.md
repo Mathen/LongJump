@@ -20,14 +20,14 @@ Currently we have relased our prototype build with features listed below. To con
   - LiquidCrystal
   - Adafruit NeoPixel
   - ArduinoJson
-  - WiFiProcisioner
+  - WiFiProvisioner
 - Select the ESP32 Dev Module as the board type.
 - Make sure the ESP32 is plugged in and build the application.
 - Once build visit the link displayed on the screen or https://longjump.ip-dynamic.org/ to connect the board to the internet and website.
 
 ### Board Hardware:
 - Each board is a 3x3 grid of tiles each board contains the following features:
-  - LCD screen displays website URL to connect to.
+  - LCD screen displays website URL to connect to. When game is initialized, host board displays "Your turn!" and guest board displays "Waiting for host...".
   - MicroProcessor to connect to the internet and operate the circitry.
   - Level shifters to enhance the brightness of the LEDs and detection range of the hall effect sensor.
   - Each board is scanned like a keyboard where the processor cycles powering each row of the grid and recording the outputs of each column.
@@ -41,14 +41,17 @@ Currently we have relased our prototype build with features listed below. To con
 ### Software MicroProcessor
 - When a user attempts to connect the board to the internet, the board appears as reciever. So when the user uses one of their devices to select the board as the network to connect to, a pop up appears (sent from the Microprocessor) to connect to the actual network. Once all the credentials are filled in, the board connects to the local network.
 - Once a piece is placed on the board over the hall effect sensor, the MicroProcessor scans the board and stores an array of the board state as a boolean whenever or not there is a piece over the tile.
-- The board transmits the board state to the server via Mqtt (to be sent later sent to the other board).
-- When the board recieves the board state (of the other board) from the server via Mqtt, it lights up the the correspinging LEDs to the board state.
+- The board transmits the board state to the server via MQTT (to be sent later sent to the guest board).
+- When the board recieves the board state (of the host board) from the server via MQTT, it lights up the the correspinging LEDs to the board state.
 
-### Website Backend
-- Need to complete
+### Oracle Backend
+- Hosts listener to add newly connected board IDs to JSON database.
+- Facilitates initial board-to-board connection process.
+- Provides host-to-guest board state transmission over MQTT.
 
 ### Website Frontend
-- Need to complete
+- Provides instructions to complete WiFi provisioning process.
+- Allows users to initialize game by selecting "Host" or "Guest" role and entering respective board IDs.
 
 ### Bugs/Known issues
 - The board mirroring the other board is only one directional currently. So the recieving board doesn't transmit it's state to the other board.
