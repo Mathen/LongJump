@@ -17,10 +17,13 @@
 #define COL1      35
 #define COL2      32
 
+#define CONF_BUTTON_PIN 22
+
 int tiles[9] = {0};
 int latestPiece = -1;
-char serverBoard[9] = {0};
+int serverBoard[9] = {0};
 bool isHost = 0;
+bool isTurn = 0;
 
 const char broker[] = "longjump.ip-dynamic.org";
 int        port     = 1883;
@@ -47,7 +50,7 @@ void setup() {
   pinMode(COL1, INPUT);
   pinMode(COL2, INPUT);
 
-  pinMode(22, INPUT_PULLUP);
+  pinMode(CONF_BUTTON_PIN, INPUT);
 
   strip.begin();
   strip.setBrightness(100);
@@ -76,8 +79,13 @@ void setup() {
   char boardSSID[32];
   snprintf(boardSSID, sizeof(boardSSID), "Longjump-%d", boardID);
   provisioner.AP_NAME = boardSSID;
-  provisioner.setupAccessPointAndServer();
+  //provisioner.setupAccessPointAndServer();
   provisioner.connectToWiFi();
+
+  lcd.clear();
+  lcd.print("WiFi connected!");
+  lcd.setCursor(0, 1);
+  lcd.print("Waiting to start");
 
   Serial.println("You're connected to the network\n");
   Serial.println();
@@ -114,8 +122,39 @@ void setup() {
   }
 }
 
-void sendMoveToServer(int position) {
-  // TODO
+// Call upon confirm button press
+void sendMoveToServer() {
+      // End turn
+      isTurn = 0;
+
+      // Publish the board current board state to the server
+      StaticJsonDocument<256> doc;
+      doc["playerID"] = boardID;
+      JsonArray boardState = doc.createNestedArray("boardState");
+
+      for (int i = 0; i < NUM_LEDS; i++) {
+        if (tiles[i] < 200) {
+            // Add to board state
+            boardState.add(1);
+        } else {
+            // Set LED to Black (off) and add to board state
+            strip.setPixelColor(i, strip.Color(0, 0, 0));
+            boardState.add(0);  // Example: 0 for inactive
+        }
+      }
+
+      char jsonBuffer[256];
+      size_t len = serializeJson(doc, jsonBuffer, sizeof(jsonBuffer));
+      mqttClient.beginMessage(send_to_guest_topic);
+      mqttClient.write((const uint8_t*)jsonBuffer, len);
+      mqttClient.endMessage();
+
+      // Update LCD
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Waiting for");
+      lcd.setCursor(0, 1);
+      lcd.print("opponent...");
 }
 
 void handleStartGame(const String &payload) {
@@ -138,8 +177,11 @@ void handleStartGame(const String &payload) {
     if (strcmp(command, "start_host") == 0) {
         Serial.println("Game Start: You are the host.");
         lcd.clear();
+        isTurn = 1;
         isHost = 1;
         lcd.setCursor(0, 0);
+        lcd.print("Game start!");
+        lcd.setCursor(0, 1);
         lcd.print("Your turn!");
     } else if (strcmp(command, "start_guest") == 0) {
         Serial.println("Game Start: You are the guest.");
@@ -147,7 +189,7 @@ void handleStartGame(const String &payload) {
         lcd.setCursor(0, 0);
         lcd.print("Waiting for");
         lcd.setCursor(0, 1);
-        lcd.print("host...");
+        lcd.print("opponent...");
 
         isHost = 0;
     } else {
@@ -156,13 +198,6 @@ void handleStartGame(const String &payload) {
     }
 }
 
-/*
-void handleMove(const String &payload) {
-    // Unpack received data from host board
-    // Display to board LEDs
-    // YOUR CODE HERE
-}
-*/
 
 void handleMove(const String &payload) {
     StaticJsonDocument<256> doc;
@@ -175,7 +210,7 @@ void handleMove(const String &payload) {
     }
 
     // Expecting payload to contain the board state as an array
-    JsonArray boardState = doc["boardState"];
+    JsonArray boardState = doc["BoardState"];
     if (!boardState) {
         Serial.println("Board state not found in payload.");
         return;
@@ -184,14 +219,157 @@ void handleMove(const String &payload) {
     // Update LEDs based on received board state
     for (int i = 0; i < NUM_LEDS; i++) {
         if (boardState[i] == 1) {
-            strip.setPixelColor(i, strip.Color(255, 0, 0));
+          // Red host piece placed
+          strip.setPixelColor(i, strip.Color(255, 0, 0));
+          // Update serverBoard
+          serverBoard[i] = boardState[i];
         } else if (boardState[i] == 2) {
-            strip.setPixelColor(i, strip.Color(0, 255, 0));
+          // Blue guest piece placed
+          strip.setPixelColor(i, strip.Color(0, 0, 255));
+          // Update serverBoard
+          serverBoard[i] = boardState[i];
         } else {
-            strip.setPixelColor(i, strip.Color(0, 0, 0));
+          strip.setPixelColor(i, strip.Color(0, 0, 0));
         }
     }
     strip.show();
+
+    // Begin turn
+    isTurn = 1;
+
+    // Update LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Your turn!");
+}
+
+void handleWin(const String &payload) {
+    StaticJsonDocument<256> doc;
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (error) {
+        Serial.print("JSON deserialization failed: ");
+        Serial.println(error.c_str());
+        return;
+    }
+
+    // Expecting payload to contain the board state as an array
+    JsonArray boardState = doc["BoardState"];
+    if (!boardState) {
+        Serial.println("Board state not found in payload.");
+        return;
+    }
+
+    // Update LEDs based on received board state
+    for (int i = 0; i < NUM_LEDS; i++) {
+        if (boardState[i] == 1) {
+          // Red host piece placed
+          strip.setPixelColor(i, strip.Color(255, 0, 0));
+          // Update serverBoard
+          serverBoard[i] = boardState[i];
+        } else if (boardState[i] == 2) {
+          // Blue guest piece placed
+          strip.setPixelColor(i, strip.Color(0, 0, 255));
+          // Update serverBoard
+          serverBoard[i] = boardState[i];
+        } else {
+          strip.setPixelColor(i, strip.Color(0, 0, 0));
+        }
+    }
+    strip.show();
+
+    // Update LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Game over!");
+    lcd.setCursor(0, 1);
+    lcd.print("You win! :)");
+}
+
+void handleLose(const String &payload) {
+    StaticJsonDocument<256> doc;
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (error) {
+        Serial.print("JSON deserialization failed: ");
+        Serial.println(error.c_str());
+        return;
+    }
+
+    // Expecting payload to contain the board state as an array
+    JsonArray boardState = doc["BoardState"];
+    if (!boardState) {
+        Serial.println("Board state not found in payload.");
+        return;
+    }
+
+    // Update LEDs based on received board state
+    for (int i = 0; i < NUM_LEDS; i++) {
+        if (boardState[i] == 1) {
+          // Red host piece placed
+          strip.setPixelColor(i, strip.Color(255, 0, 0));
+          // Update serverBoard
+          serverBoard[i] = boardState[i];
+        } else if (boardState[i] == 2) {
+          // Blue guest piece placed
+          strip.setPixelColor(i, strip.Color(0, 0, 255));
+          // Update serverBoard
+          serverBoard[i] = boardState[i];
+        } else {
+          strip.setPixelColor(i, strip.Color(0, 0, 0));
+        }
+    }
+    strip.show();
+
+    // Update LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Game over!");
+    lcd.setCursor(0, 1);
+    lcd.print("You lose. :(");
+}
+
+void handleDraw(const String &payload) {
+    StaticJsonDocument<256> doc;
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (error) {
+        Serial.print("JSON deserialization failed: ");
+        Serial.println(error.c_str());
+        return;
+    }
+
+    // Expecting payload to contain the board state as an array
+    JsonArray boardState = doc["BoardState"];
+    if (!boardState) {
+        Serial.println("Board state not found in payload.");
+        return;
+    }
+
+    // Update LEDs based on received board state
+    for (int i = 0; i < NUM_LEDS; i++) {
+        if (boardState[i] == 1) {
+          // Red host piece placed
+          strip.setPixelColor(i, strip.Color(255, 0, 0));
+          // Update serverBoard
+          serverBoard[i] = boardState[i];
+        } else if (boardState[i] == 2) {
+          // Blue guest piece placed
+          strip.setPixelColor(i, strip.Color(0, 0, 255));
+          // Update serverBoard
+          serverBoard[i] = boardState[i];
+        } else {
+          strip.setPixelColor(i, strip.Color(0, 0, 0));
+        }
+    }
+    strip.show();
+
+    // Update LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Game over!");
+    lcd.setCursor(0, 1);
+    lcd.print("Draw. :|");
 }
 
 void loop() {
@@ -217,9 +395,18 @@ void loop() {
           if (payload.indexOf("start") != -1) {
               Serial.println("Start command received");
               handleStartGame(payload);
-          } else if (payload.indexOf("boardState") != -1) {
+          } else if (payload.indexOf("move") != -1) {
               Serial.println("Move command received");
               handleMove(payload);
+          } else if (payload.indexOf("win") != -1) {
+              Serial.println("Win command received");
+              handleWin(payload);
+          } else if (payload.indexOf("lose") != -1) {
+              Serial.println("Lose command received");
+              handleLose(payload);
+          } else if (payload.indexOf("draw") != -1) {
+              Serial.println("Draw command received");
+              handleDraw(payload);
           } else {
               Serial.println("Unknown command in board message.");
           }
@@ -256,55 +443,32 @@ void loop() {
   tiles[6] = analogRead(COL0);
   tiles[7] = analogRead(COL1);
   tiles[8] = analogRead(COL2);
-/*
-  if (isHost) {
-    // Send current board state to server on send_to_guest_topic[]
-    // YOUR CODE HERE
 
-    // Update LEDs based on analog values
-    for (int i = 0; i < NUM_LEDS; i++) {
-      if (tiles[i] < 200) {
-        // Set LED to Red
-        strip.setPixelColor(i, strip.Color(255, 0, 0)); 
-      }
-      else {
-        // Set LED to Black (off)
-        strip.setPixelColor(i, strip.Color(0, 0, 0));
-      }
-    }
-    strip.show();  // Update the LEDs with new colors
-  }
-  */
-
-  if (isHost) {
-      // Prepare the board state to send
-      StaticJsonDocument<256> doc;
-      doc["playerID"] = boardID;  // Add the unique host ID
-      JsonArray boardState = doc.createNestedArray("boardState");
-
-      // Update host LEDs and prepare the state for publishing
+  if (isTurn) {
+      // Update LEDs during player turn
       for (int i = 0; i < NUM_LEDS; i++) {
+        if (serverBoard[i] == 0) {
+          // Valid empty space
           if (tiles[i] < 200) {
-              // Set LED to Red and add to board state
-              strip.setPixelColor(i, strip.Color(255, 0, 0)); 
-              boardState.add(1);  // Example: 1 for active
+              // Set LED to Red for host and blue for guest
+              if (isHost){
+                strip.setPixelColor(i, strip.Color(255, 0, 0)); 
+              } else {
+                strip.setPixelColor(i, strip.Color(0, 0, 255));
+              }
           } else {
               // Set LED to Black (off) and add to board state
               strip.setPixelColor(i, strip.Color(0, 0, 0));
-              boardState.add(0);  // Example: 0 for inactive
           }
+        }
       }
-
-      // Show the updated LED state on the host
+      // Show updated LED state
       strip.show();
-
-      // Publish the board state to the server
-      char jsonBuffer[256];
-      size_t len = serializeJson(doc, jsonBuffer, sizeof(jsonBuffer));
-      mqttClient.beginMessage(send_to_guest_topic);
-      mqttClient.write((const uint8_t*)jsonBuffer, len);
-      mqttClient.endMessage();
-
+    // Check if confirm button pressed
+    if (digitalRead(CONF_BUTTON_PIN) == 1) {
+      Serial.println("Confirm button pressed");
+      sendMoveToServer();
+    }
   }
 
   delay(100);
