@@ -6,31 +6,7 @@ const client = mqtt.connect(MQTT_BROKER);
 
 // Internal mapping of games and boards
 const gameConnections = {};
-
-// Helper function to forward messages from host to guest
-function forwardHostMessage(hostID, message) {
-    console.log('hostID:', hostID);
-    console.log('gameConnections:', gameConnections);
-
-    // Ensure `hostID` is a string for comparison
-    const hostIDString = String(hostID);
-
-    // Find the gameID by matching `hostID` correctly
-    const gameID = Object.keys(gameConnections).find(id => gameConnections[id].hostID === hostIDString);
-
-    if (!gameID) {
-        console.error(`Game for host ID ${hostID} not found.`);
-        return;
-    }
-
-    const guestID = gameConnections[gameID].guestID;
-
-    console.log('Forwarding message from host to guest:', message);
-
-    // Forward the message to the guest
-    client.publish(`board/${guestID}`, message);
-}
-
+const gameStates = {}; // Stores board states for each game
 
 // MQTT Event Listeners
 client.on('connect', () => {
@@ -39,11 +15,13 @@ client.on('connect', () => {
     // Subscribe to game start channel
     client.subscribe('server/to/gameserver', (err) => {
         if (err) console.error('Failed to subscribe to server/to/gameserver');
+        else console.log('Subscribed to server/to/gameserver');
     });
 
     // Subscribe to messages from boards
     client.subscribe('server/from/board', (err) => {
         if (err) console.error('Failed to subscribe to server/from/board');
+        else console.log('Subscribed to server/from/board');
     });
 });
 
@@ -53,21 +31,105 @@ client.on('message', (topic, message) => {
         const payload = JSON.parse(message.toString());
 
         if (topic === 'server/to/gameserver') {
-            console.log('Handling new game start:', payload);
+            // Handling new game start
+            console.log('Initializing new game with payload:', payload);
             const { gameID, hostID, guestID } = payload;
-
-            // Save the game connections
+            console.log('Game ID:', gameID);
             gameConnections[gameID] = { hostID, guestID };
+            gameStates[gameID] = {
+                sessionBoard: Array(9).fill(0),
+                boards: {
+                    [hostID]: Array(9).fill(0),
+                    [guestID]: Array(9).fill(0)
+                }
+            };
+            console.log(`Game ${gameID} initialized with Host: ${hostID}, Guest: ${guestID}`);
 
             // Notify boards to start
             client.publish(`board/${hostID}`, JSON.stringify({ command: 'start_host' }));
             client.publish(`board/${guestID}`, JSON.stringify({ command: 'start_guest' }));
         } else if (topic === 'server/from/board') {
-            const { playerID } = payload;
+            // Handling board updates
+            console.log('Processing move from board:', payload);
+            const { playerID, boardState } = payload;
 
-            // Check if the sender is a host and forward the message to the guest
-            console.log('Forwarding message from host to guest:', payload);
-            forwardHostMessage(playerID, message.toString());
+            // Find the game session
+            // Find the gameID
+            const playerIDString = String(playerID);
+            console.log(playerID);
+
+            const gameID = Object.keys(gameConnections).find(id => gameConnections[id].hostID === playerIDString || gameConnections[id].guestID === playerIDString);
+            console.log(gameID);
+
+            if (!gameID) return console.warn('Game session not found for player', playerID);
+            console.log(`Player ${playerID} is in game ${gameID}`);
+
+            const { hostID, guestID } = gameConnections[gameID];
+            console.log("Found hostID: ", hostID);
+            console.log("Found guestID: ", guestID);
+            const gameState = gameStates[gameID];
+            isHost = false;
+            if (playerID == hostID) {
+                isHost = true;
+            }
+            console.log('isHost? ', isHost);
+            const marker = isHost ? 1 : 2;
+
+            // Find the first difference
+            const previousBoardState = gameState.boards[playerID];
+            let moveIndex = -1;
+            for (let i = 0; i < 9; i++) {
+                if (previousBoardState[i] !== boardState[i] && gameState.sessionBoard[i] === 0) {
+                    moveIndex = i;
+                    break;
+                }
+            }
+
+            if (moveIndex === -1) return console.warn('No valid move detected for player', playerID);
+            console.log(`Player ${playerID} placed marker at index ${moveIndex}`);
+
+            // Update the individual board state and session board
+            gameState.boards[playerID] = [...boardState];
+            gameState.sessionBoard[moveIndex] = marker;
+            console.log(`Updated session board for game ${gameID}:`, gameState.sessionBoard);
+
+            // Check for a win condition
+            if (checkWin(gameState.sessionBoard)) {
+                console.log(`Player ${marker} wins in game ${gameID}`);
+                if (marker == 1) {
+                    client.publish(`board/${hostID}`, JSON.stringify({ command: 'win', BoardState: gameState.sessionBoard }));
+                    client.publish(`board/${guestID}`, JSON.stringify({ command: 'lose', BoardState: gameState.sessionBoard }));
+                } else if (marker == 2) {
+                    client.publish(`board/${hostID}`, JSON.stringify({ command: 'lose', BoardState: gameState.sessionBoard }));
+                    client.publish(`board/${guestID}`, JSON.stringify({ command: 'win', BoardState: gameState.sessionBoard }));
+                } else {
+                    console.warn('Invalid marker declared winner.');
+                }
+            } else {
+                turn_counter = 0;
+                for (let i = 0; i < 9; i++) {
+                    if (boardState[i] == 1 || boardState[i] == 2) {
+                        turn_counter++;
+                    }
+                }
+                console.log("# of turns", turn_counter);
+                if (turn_counter == 9) {
+                    console.log("Game resulted in draw");
+                    client.publish(`board/${hostID}`, JSON.stringify({ command: 'draw', BoardState: gameState.sessionBoard }));
+                    client.publish(`board/${guestID}`, JSON.stringify({ command: 'draw', BoardState: gameState.sessionBoard }));
+                } else {
+                    // Send move info to other board
+                    if (marker == 1) {
+                        // Send move info to guest
+                        client.publish(`board/${guestID}`, JSON.stringify({ command: 'move', BoardState: gameState.sessionBoard }));
+                    } else if (marker == 2) {
+                        // Send move info to host
+                        client.publish(`board/${hostID}`, JSON.stringify({ command: 'move', BoardState: gameState.sessionBoard }));
+                    } else {
+                        console.warn('Invalid marker detected.');
+                    }
+                }
+            }
         } else {
             console.warn(`Unexpected topic "${topic}" received.`);
         }
@@ -76,7 +138,19 @@ client.on('message', (topic, message) => {
     }
 });
 
+// Function to check if a player has won
+function checkWin(board) {
+    const winPatterns = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6]
+    ];
+    return winPatterns.some(pattern => {
+        const [a, b, c] = pattern;
+        return board[a] !== 0 && board[a] === board[b] && board[a] === board[c];
+    });
+}
+
 client.on('error', (err) => {
     console.error('MQTT Error:', err);
 });
-
