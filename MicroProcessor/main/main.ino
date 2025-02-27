@@ -1,4 +1,4 @@
-#include <Adafruit_NeoPixel.h>
+#include <FastLED.h>
 #include <WiFiProvisioner.h>
 #include <LiquidCrystal.h>
 #include <ArduinoMqttClient.h>
@@ -6,7 +6,7 @@
 #include <WiFi.h>
 
 
-#define NUM_LEDS  9
+#define NUM_LEDS  256
 #define LED_PIN   23
 
 #define ROW0      18
@@ -36,9 +36,14 @@ WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
 // RS, E, D4, D5, D6, D7
 LiquidCrystal lcd(33, 25, 26, 27, 14, 13);
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
+
+//FastLED
+CRGB leds[NUM_LEDS];
 
 void setup() {
+  FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.setBrightness(50);
+
   // Generate random 6-digit board ID
   randomSeed(analogRead(A0)); 
   boardID = random(100000, 1000000);
@@ -52,15 +57,21 @@ void setup() {
 
   pinMode(CONF_BUTTON_PIN, INPUT);
 
-  strip.begin();
-  strip.setBrightness(100);
+  FastLED.show();
 
   Serial.begin(115200);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
+  Serial.print("Starting");
 
-  strip.clear();
+  for (int i = 0; i < NUM_LEDS; i++)
+  {
+    leds[i] = CRGB(255, i/2, i);
+  }
+  FastLED.show();
+  Serial.print("Showing");
+  while(1);
 
   analogReadResolution(12);
 
@@ -138,7 +149,7 @@ void sendMoveToServer() {
             boardState.add(1);
         } else {
             // Set LED to Black (off) and add to board state
-            strip.setPixelColor(i, strip.Color(0, 0, 0));
+            leds[i] = CRGB(0, 0, 0);
             boardState.add(0);  // Example: 0 for inactive
         }
       }
@@ -220,19 +231,19 @@ void handleMove(const String &payload) {
     for (int i = 0; i < NUM_LEDS; i++) {
         if (boardState[i] == 1) {
           // Red host piece placed
-          strip.setPixelColor(i, strip.Color(255, 0, 0));
+          leds[i] = CRGB::Red;
           // Update serverBoard
           serverBoard[i] = boardState[i];
         } else if (boardState[i] == 2) {
           // Blue guest piece placed
-          strip.setPixelColor(i, strip.Color(0, 0, 255));
+          leds[i] = CRGB::Blue;
           // Update serverBoard
           serverBoard[i] = boardState[i];
         } else {
-          strip.setPixelColor(i, strip.Color(0, 0, 0));
+          leds[i] = CRGB::Black;
         }
     }
-    strip.show();
+    FastLED.show();
 
     // Begin turn
     isTurn = 1;
@@ -264,19 +275,19 @@ void handleWin(const String &payload) {
     for (int i = 0; i < NUM_LEDS; i++) {
         if (boardState[i] == 1) {
           // Red host piece placed
-          strip.setPixelColor(i, strip.Color(255, 0, 0));
+          leds[i] = CRGB::Red;
           // Update serverBoard
           serverBoard[i] = boardState[i];
         } else if (boardState[i] == 2) {
           // Blue guest piece placed
-          strip.setPixelColor(i, strip.Color(0, 0, 255));
+          leds[i] = CRGB::Blue;
           // Update serverBoard
           serverBoard[i] = boardState[i];
         } else {
-          strip.setPixelColor(i, strip.Color(0, 0, 0));
+          leds[i] = CRGB::Black;
         }
     }
-    strip.show();
+    FastLED.show();
 
     // Update LCD
     lcd.clear();
@@ -307,19 +318,19 @@ void handleLose(const String &payload) {
     for (int i = 0; i < NUM_LEDS; i++) {
         if (boardState[i] == 1) {
           // Red host piece placed
-          strip.setPixelColor(i, strip.Color(255, 0, 0));
+          leds[i] = CRGB::Red;
           // Update serverBoard
           serverBoard[i] = boardState[i];
         } else if (boardState[i] == 2) {
           // Blue guest piece placed
-          strip.setPixelColor(i, strip.Color(0, 0, 255));
+          leds[i] = CRGB::Blue;
           // Update serverBoard
           serverBoard[i] = boardState[i];
         } else {
-          strip.setPixelColor(i, strip.Color(0, 0, 0));
+          leds[i] = CRGB::Black;
         }
     }
-    strip.show();
+    FastLED.show();
 
     // Update LCD
     lcd.clear();
@@ -350,19 +361,19 @@ void handleDraw(const String &payload) {
     for (int i = 0; i < NUM_LEDS; i++) {
         if (boardState[i] == 1) {
           // Red host piece placed
-          strip.setPixelColor(i, strip.Color(255, 0, 0));
+          leds[i] = CRGB::Red;
           // Update serverBoard
           serverBoard[i] = boardState[i];
         } else if (boardState[i] == 2) {
           // Blue guest piece placed
-          strip.setPixelColor(i, strip.Color(0, 0, 255));
+          leds[i] = CRGB::Blue;
           // Update serverBoard
           serverBoard[i] = boardState[i];
         } else {
-          strip.setPixelColor(i, strip.Color(0, 0, 0));
+          leds[i] = CRGB::Black;
         }
     }
-    strip.show();
+    FastLED.show();
 
     // Update LCD
     lcd.clear();
@@ -452,18 +463,18 @@ void loop() {
           if (tiles[i] < 200) {
               // Set LED to Red for host and blue for guest
               if (isHost){
-                strip.setPixelColor(i, strip.Color(255, 0, 0)); 
+                leds[i] = CRGB::Red;
               } else {
-                strip.setPixelColor(i, strip.Color(0, 0, 255));
+                leds[i] = CRGB::Blue;
               }
           } else {
               // Set LED to Black (off) and add to board state
-              strip.setPixelColor(i, strip.Color(0, 0, 0));
+              leds[i] = CRGB::Black;
           }
         }
       }
       // Show updated LED state
-      strip.show();
+      FastLED.show();
     // Check if confirm button pressed
     if (digitalRead(CONF_BUTTON_PIN) == 1) {
       Serial.println("Confirm button pressed");
