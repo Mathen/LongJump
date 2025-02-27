@@ -1,8 +1,8 @@
 #include "Grid.hpp"
 
 // TODO: Define row and column pin values
-const int rowPins[8] = {1, 2, 3, 4, 5, 6, 7, 8};
-const int colPins[8] = {9, 10, 11, 12, 13, 14, 15, 16};
+const int rowPins[8] = {18, 2, 3, 4, 5, 6, 7, 8};
+const int colPins[8] = {34, 10, 11, 12, 13, 14, 15, 16};
 const int hallSense = 200;
 
 /*
@@ -62,6 +62,11 @@ void Grid::UpdateLeds(const String &payload, Adafruit_NeoPixel &strip)
     // determine the color 
     c = boardState[i];
     color = charToColor(c);
+
+    // prints 1d array boardState sent by MQTT server
+    Serial.print(c);
+    if (i < 63) { Serial.print(", "); }
+    else { Serial.println(" "); }
 
     // assign the color to the correct 4 leds on the strip
     strip.setPixelColor(q1, color);
@@ -131,25 +136,25 @@ uint32_t Grid::CharToColor(char c, Adafruit_NeoPixel &strip)
 {
   uint32_t color;
   switch (c) {
-    case 'R': // RED
+    case 'r': // RED
       color = strip.Color(255, 0, 0);
       break;
-    case 'G': // GREEN
+    case 'g': // GREEN
       color = strip.Color(0, 255, 0);
       break;
-    case 'B': // BLUE
+    case 'b': // BLUE
       color = strip.Color(0, 0, 255);
       break;
-    case 'P': // PURPLE
+    case 'p': // PURPLE
       color = strip.Color(255, 0, 255);
       break;
-    case 'Y': // YELLOW
+    case 'y': // YELLOW
       color = strip.Color(255, 255, 0);
       break;
-    case 'C': // CYAN
+    case 'c': // CYAN
       color = strip.Color(0, 255, 255);
       break;
-    case 'W': // WHITE
+    case 'w': // WHITE
       color = strip.Color(255, 255, 255);
       break;
     case '0': // BLACK
@@ -162,6 +167,12 @@ uint32_t Grid::CharToColor(char c, Adafruit_NeoPixel &strip)
 
 void Grid::UpdateSensors()
 {
+  digitalWrite(rowPins[0], LOW);
+  int sensorReading = analogRead(colPins[0]);
+  if (sensorReading < hallSense) { currSensors[0] = false; }
+  else { currSensors[0] = true; }
+
+  /*
   // will iterate 0-63 for each sensor
   int num = 0;
 
@@ -195,6 +206,7 @@ void Grid::UpdateSensors()
 
     delay(5);
   }
+  */
 }
 
 
