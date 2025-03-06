@@ -5,30 +5,20 @@ const int rowPins[8] = {18, 2, 3, 4, 5, 6, 7, 8};
 const int colPins[8] = {34, 10, 11, 12, 13, 14, 15, 16};
 const int hallSense = 200;
 
-/*
-#define ROW0      18
-#define ROW1      4
-#define ROW2      19
-
-#define COL0      34
-#define COL1      35
-#define COL2      32
-*/
-
 Grid::Grid() : dimX(0), dimY(0)
 {
-  //SetUpGrid();
+  leds = nullptr;
 }
-Grid::Grid(unsigned int dimention) : dimX(dimention), dimY(dimention)
+Grid::Grid(CRGB* ledArray, unsigned int dimention) : dimX(dimention), dimY(dimention)
 {
-  //SetUpGrid();
+  leds = ledArray;
 }
-Grid::Grid(unsigned int dimentionX, unsigned int dimentionY) : dimX(dimentionX), dimY(dimentionY)
+Grid::Grid(CRGB* ledArray, unsigned int dimentionX, unsigned int dimentionY) : dimX(dimentionX), dimY(dimentionY)
 {
-  //SetUpGrid();
+  leds = ledArray;
 }
 
-void Grid::UpdateLeds(const String &payload, Adafruit_NeoPixel &strip)
+void Grid::UpdateLeds(const String &payload)
 {
   StaticJsonDocument<256> doc;
   DeserializationError error = deserializeJson(doc, payload);
@@ -46,7 +36,7 @@ void Grid::UpdateLeds(const String &payload, Adafruit_NeoPixel &strip)
       return;
   }
 
-  char c; // character received by payload
+  unsigned char c; // character received by payload
 
   // q values represent the 4 led quadrants of a tile
   // each q value is initialized for tile[0] (aka boardState[0])
@@ -61,7 +51,7 @@ void Grid::UpdateLeds(const String &payload, Adafruit_NeoPixel &strip)
 
     // determine the color 
     c = boardState[i];
-    color = charToColor(c);
+    CRGB color = CharToColor(c);
 
     // prints 1d array boardState sent by MQTT server
     Serial.print(c);
@@ -69,10 +59,10 @@ void Grid::UpdateLeds(const String &payload, Adafruit_NeoPixel &strip)
     else { Serial.println(" "); }
 
     // assign the color to the correct 4 leds on the strip
-    strip.setPixelColor(q1, color);
-    strip.setPixelColor(q2, color);
-    strip.setPixelColor(q3, color);
-    strip.setPixelColor(q4, color);
+    leds[q1] = color;
+    leds[q2] = color;
+    leds[q3] = color;
+    leds[q4] = color;
 
     // modify q values so the next 4 leds 
     if (i % 8 == 7) 
@@ -92,13 +82,13 @@ void Grid::UpdateLeds(const String &payload, Adafruit_NeoPixel &strip)
   }
 
   // have board light up with updated led colors
-  strip.show();
+  FastLED.show();
 
 }
 
-void Grid::ClearLeds(Adafruit_NeoPixel &strip)
+void Grid::ClearLeds()
 {
-  strip.clear();
+  FastLED.clear();
 }
 
 /*
@@ -132,34 +122,34 @@ bool Grid::GetPiecePlaced(unsigned int x, unsigned int y)
 }
 */
 
-uint32_t Grid::CharToColor(char c, Adafruit_NeoPixel &strip)
+CRGB Grid::CharToColor(unsigned char c)
 {
-  uint32_t color;
+  CRGB color;
   switch (c) {
     case 'r': // RED
-      color = strip.Color(255, 0, 0);
+      color = CRGB(255, 0, 0);
       break;
     case 'g': // GREEN
-      color = strip.Color(0, 255, 0);
+      color = CRGB(0, 255, 0);
       break;
     case 'b': // BLUE
-      color = strip.Color(0, 0, 255);
+      color = CRGB(0, 0, 255);
       break;
     case 'p': // PURPLE
-      color = strip.Color(255, 0, 255);
+      color = CRGB(255, 0, 255);
       break;
     case 'y': // YELLOW
-      color = strip.Color(255, 255, 0);
+      color = CRGB(255, 255, 0);
       break;
     case 'c': // CYAN
-      color = strip.Color(0, 255, 255);
+      color = CRGB(0, 255, 255);
       break;
     case 'w': // WHITE
-      color = strip.Color(255, 255, 255);
+      color = CRGB(255, 255, 255);
       break;
     case '0': // BLACK
-    case default:
-      color = strip.Color(0, 0, 0);
+    default:
+      color = CRGB(0, 0, 0);
       break;
   }
   return color;
