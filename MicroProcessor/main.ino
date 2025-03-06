@@ -1,8 +1,8 @@
-#include <Adafruit_NeoPixel.h>
-#include <WiFiProvisioner.h>
+#include <FastLED.h>
 #include <LiquidCrystal.h>
 #include <ArduinoMqttClient.h>
 #include <ArduinoJson.h>
+#include <WiFiProvisioner.h>
 #include <WiFi.h>
 #include "Grid.hpp"
 
@@ -50,15 +50,21 @@ const char send_to_guest_topic[] = "boards/from/chess";
 int boardID = 0;
 
 WiFiProvisioner::WiFiProvisioner provisioner;
-WiFiClient wifiClient;
+WifiClient wifiClient;
 MqttClient mqttClient(wifiClient);
 // RS, E, D4, D5, D6, D7
 LiquidCrystal lcd(33, 25, 26, 27, 14, 13);
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
 
-Grid board(8);
+//FastLED
+CRGB leds[NUM_LEDS];
+
+//Grid object
+Grid board(leds, 8);
 
 void setup() {
+  FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.setBrightness(50);
+
   // Generate random 6-digit board ID
   randomSeed(analogRead(A0)); 
   boardID = random(100000, 1000000);
@@ -82,15 +88,13 @@ void setup() {
 
   pinMode(CONF_BUTTON_PIN, INPUT);
 
-  strip.begin();
-  strip.setBrightness(100);
+  FastLED.clear();
+  FastLED.show();
 
   Serial.begin(115200);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
-
-  strip.clear();
 
   analogReadResolution(12);
 
@@ -152,9 +156,18 @@ void setup() {
   }
 }
 
+//Tests grid leds
+void TestGrid() {
+  for (int i = 0; i < NUM_LEDS; i++)
+  {
+    leds[i] = CRGB(255, i/2, i);
+  }
+  FastLED.show();
+}
+
 void sendToServer() {
       // Publish the board current board state to the server
-      StaticJsonDocument<512> doc;
+      StaticJsonDocument<256> doc;
 
       doc["playerID"] = boardID;
 
@@ -165,7 +178,7 @@ void sendToServer() {
 
       doc["confirmButton"] = digitalRead(CONF_BUTTON_PIN);
 
-      char jsonBuffer[512];
+      char jsonBuffer[256];
       size_t len = serializeJson(doc, jsonBuffer, sizeof(jsonBuffer));
       mqttClient.beginMessage(send_to_guest_topic);
       mqttClient.write((const uint8_t*)jsonBuffer, len);
@@ -250,14 +263,8 @@ void handleStartGame(const String &payload) {
     }
 }
 
-void serverBoardUpdate(JsonArray boardState) {
-  for (int i = 0; i < NUM_LEDS; i++) {
-    serverBoard[i] = boardState[i];
-  }
-}
-
 void handleMove(const String &payload) {
-    board.UpdateLeds(payload, strip);
+    board.UpdateLeds(payload);
 
     // Next step is to move the opponent's pieces
     makingOppMove = 1;
@@ -271,7 +278,7 @@ void handleMove(const String &payload) {
 }
 
 void handleWin(const String &payload) {
-    board.UpdateLeds(payload, strip);
+    board.UpdateLeds(payload);
     gameOver = 1;
 
     // Update LCD
@@ -283,7 +290,7 @@ void handleWin(const String &payload) {
 }
 
 void handleLose(const String &payload) {
-    board.UpdateLeds(payload, strip);
+    board.UpdateLeds(payload);
     gameOver = 1;
 
     // Update LCD
@@ -295,7 +302,7 @@ void handleLose(const String &payload) {
 }
 
 void handleDraw(const String &payload) {
-    board.UpdateLeds(payload, strip);
+    board.UpdateLeds(payload);
     gameOver = 1;
 
     // Update LCD
@@ -343,12 +350,15 @@ void loop() {
               handleDraw(payload);
           } else {
               Serial.println("Unknown command in board message.");
-              board.UpdateLeds(payload, strip);
+              board.UpdateLeds(payload);
           }
       } else {
           Serial.println("Unhandled topic.");
       }
   }
+
+  // Lights up board in predetermined pattern
+  TestGrid();
   
   // Reads hall effect sensors.
   board.UpdateSensors();
