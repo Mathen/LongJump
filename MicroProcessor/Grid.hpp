@@ -4,7 +4,7 @@
 #pragma once
 
 #include <vector>
-#include <Adafruit_NeoPixel.h>
+#include <FastLED.h>
 #include <string>
 
 class Grid
@@ -15,20 +15,20 @@ public:
   Grid();
 
   //dimention: grid of size [dimention x dimention]
-  Grid(unsigned int dimention);
+  Grid(CRGB* ledArray, unsigned int dimention);
 
   //dimentionX, dimentionY: grid of size [dimentionX x dimentionY]
-  Grid(unsigned int dimentionX, unsigned int dimentionY);
+  Grid(CRGB* ledArray, unsigned int dimentionX, unsigned int dimentionY);
 
   //-----------Grid Interface------------
   //Input piece placement data from circuit and change Cell LEDs
-  void UpdateLeds(const String &payload, Adafruit_NeoPixel &strip);
+  void UpdateLeds(const String &payload);
 
   //Change all Cell LEDs to Black
-  void ClearLeds(Adafruit_NeoPixel &strip);
+  void ClearLeds();
 
   //Converts char to corresponding color
-  uint32_t CharToColor(char c, Adafruit_NeoPixel &strip);
+  CRGB CharToColor(unsigned char c);
 
   //Set the color of a grid based on an RGB value
   //void SetColor(unsigned int x, unsigned int y, uint32_t color);
@@ -50,7 +50,7 @@ public:
   const bool* GetCurrSensors();
 
   //Returns currSensors
-bool GetCurrSensorsAt(int n) const;
+  bool GetCurrSensorsAt(int n) const;
 
 
 private:
@@ -61,6 +61,7 @@ private:
 private:
   unsigned int dimX;
   unsigned int dimY;
+  CRGB* leds;
 
   bool prevSensors[64] = {0};
   bool currSensors[64] = {0};
