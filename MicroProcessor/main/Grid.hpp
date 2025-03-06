@@ -4,7 +4,7 @@
 #pragma once
 
 #include <vector>
-#include <Adafruit_NeoPixel.h>
+#include <FastLED.h>
 #include <string>
 
 class Grid
@@ -15,37 +15,56 @@ public:
   Grid();
 
   //dimention: grid of size [dimention x dimention]
-  Grid(unsigned int dimention);
+  Grid(CRGB* ledArray, unsigned int dimention);
 
   //dimentionX, dimentionY: grid of size [dimentionX x dimentionY]
-  Grid(unsigned int dimentionX, unsigned int dimentionY);
+  Grid(CRGB* ledArray, unsigned int dimentionX, unsigned int dimentionY);
 
   //-----------Grid Interface------------
   //Input piece placement data from circuit and change Cell LEDs
-  void Update();
+  void UpdateLeds(const String &payload);
 
   //Change all Cell LEDs to Black
   void ClearLeds();
 
+  //Converts char to corresponding color
+  CRGB CharToColor(unsigned char c);
+
   //Set the color of a grid based on an RGB value
-  void SetColor(unsigned int x, unsigned int y, uint32_t color);
-  void SetColor(unsigned int x, unsigned int y, uint8_t r, uint8_t g, uint8_t b);
+  //void SetColor(unsigned int x, unsigned int y, uint32_t color);
+  //void SetColor(unsigned int x, unsigned int y, uint8_t r, uint8_t g, uint8_t b);
 
   //Returns if a piece is placed on that location on the grid
-  bool GetPiecePlaced(unsigned int x, unsigned int y);
+  //bool GetPiecePlaced(unsigned int x, unsigned int y);
 
-  //Returns a std::string for the 
-  std::string to_string();
+  //Updates currSensors with hall effect sensor readings
+  void UpdateSensors();
+
+  //Compares currSensors with prevSensors
+  bool PiecesChanged();
+
+  //Overwrites prevSensors with currSensors
+  void SaveReadings();
+
+  //Returns currSensors
+  const bool* GetCurrSensors();
+
+  //Returns currSensors
+  bool GetCurrSensorsAt(int n) const;
+
 
 private:
   //-----------Helper Functions----------
-  void SetUpGrid();
+  //void SetUpGrid();
 
   //-----------Parameters----------------
 private:
   unsigned int dimX;
   unsigned int dimY;
+  CRGB* leds;
 
-  Adafruit_NeoPixel leds;
-  std::vector<std::vector<bool>> piecesPlaced;
+  bool prevSensors[64] = {0};
+  bool currSensors[64] = {0};
+
+  //std::vector<std::vector<bool>> piecesPlaced;
 };
