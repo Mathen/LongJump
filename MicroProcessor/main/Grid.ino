@@ -18,11 +18,6 @@ Grid::Grid(CRGB* ledArray, unsigned int dimentionX, unsigned int dimentionY) : d
   leds = ledArray;
 }
 
-/* -------------------------------------------------------
-----------------------------------------------------------
------------------THIS IS THE ISSUE------------------------
-----------------------------------------------------------
---------------------------------------------------------*/
 void Grid::UpdateLeds(const String &payload)
 {
   StaticJsonDocument<256> doc;
