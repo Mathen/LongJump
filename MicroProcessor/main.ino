@@ -45,12 +45,12 @@ bool gameOver = 0;
 
 const char broker[] = "longjump.ip-dynamic.org";
 int        port     = 1883;
-const char server_topic[] = "boards/to/chess";
+const char server_topic[] = "boards/to/server";
 const char send_to_guest_topic[] = "boards/from/chess";
 int boardID = 0;
 
 WiFiProvisioner::WiFiProvisioner provisioner;
-WifiClient wifiClient;
+WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
 // RS, E, D4, D5, D6, D7
 LiquidCrystal lcd(33, 25, 26, 27, 14, 13);
@@ -233,33 +233,51 @@ void handleStartGame(const String &payload) {
     }
 
     const char* command = doc["command"];
+    const char* message = doc["message"];
 
-    if (!command) {
-        Serial.println("Command not found in payload");
-        return;
+    // booleans determine the game being played
+    bool isNotChess = (!message);
+    bool isNotTicTacToe = (!command);
+
+    if (!isNotChess) {
+        if (strcmp(message, "chess_start_host") == 0) {
+            board.UpdateLeds(payload);
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Chess started!");
+            lcd.setCursor(0, 1);
+            lcd.print("Updated board!");
+        }
     }
+    else if (!isNotTicTacToe) {
+        if (strcmp(command, "start_host") == 0) {
+            Serial.println("Game Start: You are the host.");
+            lcd.clear();
+            isTurn = 1;
+            isHost = 1;
+            lcd.setCursor(0, 0);
+            lcd.print("Game start!");
+            lcd.setCursor(0, 1);
+            lcd.print("Your turn!");
+        } else if (strcmp(command, "start_guest") == 0) {
+            Serial.println("Game Start: You are the guest.");
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Waiting for");
+            lcd.setCursor(0, 1);
+            lcd.print("opponent...");
 
-    if (strcmp(command, "start_host") == 0) {
-        Serial.println("Game Start: You are the host.");
-        lcd.clear();
-        isTurn = 1;
-        isHost = 1;
-        lcd.setCursor(0, 0);
-        lcd.print("Game start!");
-        lcd.setCursor(0, 1);
-        lcd.print("Your turn!");
-    } else if (strcmp(command, "start_guest") == 0) {
-        Serial.println("Game Start: You are the guest.");
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Waiting for");
-        lcd.setCursor(0, 1);
-        lcd.print("opponent...");
-
-        isHost = 0;
-    } else {
-        Serial.print("Unknown command: ");
-        Serial.println(command);
+            isHost = 0;
+        }
+    }
+    else {
+        Serial.print("Unknown payload: ");
+        if (!isNotChess) {
+            Serial.println(message);
+        }
+        else if (!isNotTicTacToe) {
+            Serial.println(command);
+        }
     }
 }
 
@@ -348,6 +366,7 @@ void loop() {
           } else if (payload.indexOf("draw") != -1) {
               Serial.println("Draw command received");
               handleDraw(payload);
+          } else if (payload.indexOf("start")) {
           } else {
               Serial.println("Unknown command in board message.");
               board.UpdateLeds(payload);
@@ -358,7 +377,7 @@ void loop() {
   }
 
   // Lights up board in predetermined pattern
-  TestGrid();
+  // TestGrid();
   
   // Reads hall effect sensors.
   board.UpdateSensors();
