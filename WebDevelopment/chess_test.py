@@ -3,6 +3,8 @@ import json
 import time
 import numpy as np
 
+HOST_ID = 239104
+
 # Initialize MQTT client
 client = mqtt.Client()
 
@@ -25,20 +27,21 @@ def chess_square_to_index(square):
     return rank * 8 + file
 
 def send_board_state(player_id, board_state, confirm_button=False):
-    input(f"Press Enter to continue: {player_id}")
+    # input(f"Press Enter to continue: {player_id}")
     payload = {
         "playerID": player_id,
         "boardState": board_state,
         "confirmButton": 1 if confirm_button else 0
     }
-    print(f"\nSending board state from {'Host' if player_id == 111111 else 'Guest'} board:")
+    print(f"\nSending board state from {'Host' if player_id == HOST_ID else 'Guest'} board:")
     print(f"Player ID: {player_id}")
     print("Board state:")
     print(np.array(board_state).reshape(8, 8)[::-1])
     print(f"Confirm button: {confirm_button}")
 
     client.publish("boards/to/chess", json.dumps(payload))
-    time.sleep(0.1)
+    print('-'*25)
+    time.sleep(0.01)
 
 def simulate_scholars_mate():
     global host_board, guest_board
@@ -48,36 +51,54 @@ def simulate_scholars_mate():
     client.loop_start()
     time.sleep(1)
 
+    '''
     payload = json.dumps({
-        "gameID": '111111-111112',
-        "hostID": '111111',
+        "gameID": 'HOST_ID-111112',
+        "hostID": 'HOST_ID',
         "guestID": '111112',
     })
-    client.publish('server/to/chessServer', payload)
+    client.publish('server/to/chessServer', payload)'
+    '''
 
     input("Press Enter to start Scholar's Mate simulation")
     
     moves = [
-        (111111, "e2", False), (111111, "e4", False), (111111, None, True),
-        (111112, "e2", False), (111112, "e4", False), (111112, "e7", False),
-        (111112, "e5", False), (111112, None, True), (111111, "e7", False),
-        (111111, "e5", False), (111111, "d1", False), (111111, "h5", False),
-        (111111, None, True), (111112, "d1", False), (111112, "h5", False),
-        (111112, "b8", False), (111112, "c6", False), (111112, None, True),
-        (111111, "b8", False), (111111, "c6", False), (111111, "f1", False),
-        (111111, "c4", False), (111111, None, True), (111112, "f1", False),
-        (111112, "c4", False), (111112, "g8", False), (111112, "f6", False),
-        (111112, None, True), (111111, "g8", False), (111111, "f6", False),
-        (111111, "h5", False), (111111, "f7", False), (111111, "f7", False),
-        (111111, None, True)
+        (HOST_ID, "e2", False, False), (HOST_ID, "e4", False, False), (HOST_ID, None, True, False),
+        (111112, "e2", False, False),
+
+        #(HOST_ID, "c6", False, True), # dummy pick up
+        #(HOST_ID, "f7", False, True), # dummy pick up
+        #(HOST_ID, "c6", False, True), # dummy place
+        #(HOST_ID, "f7", False, True), # dummy place
+        
+        (111112, "e4", False, False), (111112, "e7", False, False),
+        (111112, "e5", False, False), (111112, None, True, False), (HOST_ID, "e7", False, False),
+        (HOST_ID, "e5", False, False), (HOST_ID, "d1", False, False), (HOST_ID, "h5", False, False),
+        (HOST_ID, None, True, False), (111112, "d1", False, False), (111112, "h5", False, False),
+        (111112, "b8", False, False), (111112, "c6", False, False), (111112, None, True, False),
+        (HOST_ID, "b8", False, False), # pickup opp
+
+        #(111112, "d1", False, True), # dummy pickup
+
+        (HOST_ID, "c6", False, False), (HOST_ID, "f1", False, False), # place opp, pickup
+        
+        #(111112, "d1", False, True), # dummy place
+        
+        (HOST_ID, "c4", False, False), (HOST_ID, None, True, False), (111112, "f1", False, False), # place, confirm, pickup opp
+        (111112, "c4", False, False), (111112, "g8", False, False), (111112, "f6", False, False),
+        (111112, None, True, False), (HOST_ID, "g8", False, False), (HOST_ID, "f6", False, False),
+        (HOST_ID, "h5", False, False), (HOST_ID, "f7", False, False), (HOST_ID, "f7", False, False),
+        (HOST_ID, None, True, False)
     ]
 
     for action in moves:
-        player, square, confirm = action
+        player, square, confirm, isDummy = action
         if square:
-            input(f"Press Enter to move {square} for player {player}")
+            input(f"----------Press Enter to move {square} for player {player}----------")
             index = chess_square_to_index(square)
-            if player == 111111:
+            if isDummy:
+                print(f'----------DUMMY MOVE: Move {square} for player {player}----------')
+            if player == HOST_ID:
                 host_board[index] = 0 if host_board[index] else 1
                 send_board_state(player, host_board)
             else:
@@ -85,7 +106,7 @@ def simulate_scholars_mate():
                 send_board_state(player, guest_board)
         if confirm:
             input(f"Press Enter to confirm move for player {player}")
-            send_board_state(player, host_board if player == 111111 else guest_board, confirm_button=True)
+            send_board_state(player, host_board if player == HOST_ID else guest_board, confirm_button=True)
 
 if __name__ == "__main__":
     simulate_scholars_mate()
