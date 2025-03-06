@@ -18,6 +18,11 @@ Grid::Grid(CRGB* ledArray, unsigned int dimentionX, unsigned int dimentionY) : d
   leds = ledArray;
 }
 
+/* -------------------------------------------------------
+----------------------------------------------------------
+-----------------THIS IS THE ISSUE------------------------
+----------------------------------------------------------
+--------------------------------------------------------*/
 void Grid::UpdateLeds(const String &payload)
 {
   StaticJsonDocument<256> doc;
@@ -30,7 +35,7 @@ void Grid::UpdateLeds(const String &payload)
   }
 
   // Expecting payload to contain the board state as an array
-  JsonArray boardState = doc["BoardState"];
+  JsonArray boardState = doc["ledArray"];
   if (!boardState) {
       Serial.println("Board state not found in payload.");
       return;
@@ -50,7 +55,7 @@ void Grid::UpdateLeds(const String &payload)
   for (int i = 0; i < 64; i++) {
 
     // determine the color 
-    c = boardState[i];
+    c = (unsigned char)boardState[i];
     CRGB color = CharToColor(c);
 
     // prints 1d array boardState sent by MQTT server
@@ -143,6 +148,9 @@ CRGB Grid::CharToColor(unsigned char c)
       break;
     case 'c': // CYAN
       color = CRGB(0, 255, 255);
+      break;
+    case 'o':
+      color = CRGB(238, 73, 35);
       break;
     case 'w': // WHITE
       color = CRGB(255, 255, 255);
