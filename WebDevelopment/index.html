@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<meta charset="UTF-8">
 <html>
 <head>
   <title>Longjump</title>
@@ -69,9 +70,9 @@
     }
 
     #waiting-message {
-            color: green;
-            margin-top: 10px;
-            display: none;
+      color: green;
+      margin-top: 10px;
+      display: none;
     }
 
     .message-cell {
@@ -96,6 +97,72 @@
       display: none;
       margin: 20px 0;
     }
+
+    #host-options {
+      display: none;
+      margin: 10px 0;
+    }
+
+    #chess-board-container {
+      display: none;
+      margin: 20px auto;
+      max-width: 400px;
+    }
+
+    .chess-board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      width: 100%;
+      aspect-ratio: 1;
+      border: 2px solid #333;
+    }
+
+    .chess-square {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      font-size: 3rem;
+      height: 3.5rem;
+    }
+
+    .light-square {
+      background-color: #f0d9b5;
+    }
+
+    .dark-square {
+      background-color: #b58863;
+    }
+
+    .chess-piece {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: default;
+    }
+
+    .board-label {
+      position: absolute;
+      font-size: 0.8rem;
+      color: #666;
+      pointer-events: none;
+    }
+
+    .row-label {
+      left: 2px;
+      top: 2px;
+    }
+
+    .col-label {
+      right: 2px;
+      bottom: 2px;
+    }
+
+    #game-info {
+      margin-top: 10px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -110,8 +177,7 @@
     <li>The LCD should now display the board's ID for use on this website.</li>
   </ol>
 
-      
-<div id="input-section">
+  <div id="input-section">
     <p>After completing the above steps, enter your assigned board ID below and select whether you are HOST or GUEST.</p>
     <label for="bid-input">Enter Your Board ID:</label><br>
     <input type="text" id="bid-input" maxlength="6" placeholder="6-digit Board ID"><br>
@@ -120,6 +186,16 @@
     <button id="host-button">HOST</button>
     <button id="guest-button">GUEST</button>
     
+    <div id="host-options">
+      <label for="game-dropdown">Select Game:</label><br>
+      <select id="game-dropdown">
+        <option value="tic-tac-toe">Tic-Tac-Toe</option>
+        <option value="chess">Chess</option>
+      </select>
+      <br>
+      <button id="confirm-button">CONFIRM</button>
+    </div>
+
     <p>You are <span id="host-or-guest">???</span></p>
     <p>Your Board ID is <span id="boardID">???</span></p>
     <p id="game-starting-message" style="color: green; display: none;">Game starting!</p>
@@ -130,33 +206,27 @@
       <input type="text" id="host-id-input" maxlength="6" placeholder="6-digit Host ID"><br>
       <button id="connect-button">Connect to Host</button>
     </div>
-</div>
+  </div>
 
-<div id="guest-request-section">
+  <div id="guest-request-section">
     <p>Guest <span id="requesting-guest-id"></span> wants to connect.</p>
     <button id="accept-request">Accept</button>
     <button id="reject-request">Reject</button>
-</div>
+  </div>
 
-    
-  <div id="message-container">
-    <div class="message-cell"></div>
-    <div class="message-cell"></div>
-    <div class="message-cell"></div>
-    <div class="message-cell"></div>
-    <div class="message-cell"></div>
-    <div class="message-cell"></div>
-    <div class="message-cell"></div>
-    <div class="message-cell"></div>
-    <div class="message-cell"></div>
+  <div id="chess-board-container">
+    <h2>Live Board View</h2>
+    <div class="chess-board" id="chess-board"></div>
+    <div id="game-info">Game ID: <span id="game-id">Connecting...</span></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
   <script>
     let isHost = false;
     let userBID = "";
+    let hostID = "";
+    let gameID = "";
     const client = mqtt.connect('wss://longjump.ip-dynamic.org/mqtt');
-
     const bidInput = document.getElementById('bid-input');
     const hostButton = document.getElementById('host-button');
     const guestButton = document.getElementById('guest-button');
@@ -169,6 +239,97 @@
     const requestingGuestIDSpan = document.getElementById('requesting-guest-id');
     const acceptRequestButton = document.getElementById('accept-request');
     const rejectRequestButton = document.getElementById('reject-request');
+    const hostOptions = document.getElementById('host-options');
+    const confirmButton = document.getElementById('confirm-button');
+    const gameDropdown = document.getElementById('game-dropdown');
+    const chessBoard = document.getElementById('chess-board');
+    const chessBoardContainer = document.getElementById('chess-board-container');
+    const gameIDSpan = document.getElementById('game-id');
+    const messageContainer = document.getElementById('message-container');
+    const gameStartingMessage = document.getElementById('game-starting-message');
+    const pieceMapping = {
+      'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
+      'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙',
+      '.': ''
+    };
+
+    function createChessBoard() {
+      chessBoard.innerHTML = '';
+      const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+      const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+      
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          const square = document.createElement('div');
+          square.className = `chess-square ${(i + j) % 2 === 0 ? 'light-square' : 'dark-square'}`;
+          square.id = `square-${i}-${j}`;
+          
+          // Row labels
+          if (j === 0) {
+            const rowLabel = document.createElement('span');
+            rowLabel.className = 'board-label row-label';
+            rowLabel.textContent = ranks[i];
+            square.appendChild(rowLabel);
+          }
+          
+          // Col labels
+          if (i === 7) {
+            const colLabel = document.createElement('span');
+            colLabel.className = 'board-label col-label';
+            colLabel.textContent = files[j];
+            square.appendChild(colLabel);
+          }
+          
+          // Piece container
+          const pieceElement = document.createElement('div');
+          pieceElement.className = 'chess-piece';
+          square.appendChild(pieceElement);
+          
+          chessBoard.appendChild(square);
+        }
+      }
+    }
+
+    // Show chess board / hide tic tac toe
+    function showChessBoard() {
+      if (messageContainer) {
+        messageContainer.style.display = 'none';
+      }
+      if (chessBoardContainer) {
+        chessBoardContainer.style.display = 'block';
+      }
+      chessBoardContainer.scrollIntoView({ behavior: 'smooth' }); 
+      createChessBoard();
+    }
+
+    // Update board state
+    function updateChessBoard(boardState) {
+      const rows = boardState.split('\n');
+      
+      for (let i = 0; i < 8; i++) {
+        const row = rows[i].split(' ');
+        for (let j = 0; j < 8; j++) {
+          const square = document.getElementById(`square-${i}-${j}`);
+          if (square) {
+            const pieceElement = square.querySelector('.chess-piece');
+            if (pieceElement) {
+              const piece = row[j];
+              
+              pieceElement.textContent = pieceMapping[piece] || '';
+              
+              pieceElement.classList.remove('white-piece', 'black-piece');
+              if (piece && piece !== '.') {
+                if (piece === piece.toUpperCase()) {
+                  pieceElement.classList.add('white-piece');
+                } else {
+                  pieceElement.classList.add('black-piece');
+                }
+              }
+            }
+          }
+        }
+      }
+    }
 
     function validateBoardID() {
       const input = bidInput.value.trim();
@@ -179,65 +340,110 @@
         return true;
       } else {
         errorMessage.style.visibility = 'visible';
+        errorMessage.textContent = "Invalid Board ID. It should be 6 digits.";
         return false;
       }
     }
 
-    function sendRoleToServer(role, hostID = null) {
+    function sendRoleToServer(role, hostIDParam = null) {
       if (validateBoardID()) {
         const message = { boardID: userBID, role: role };
-        if (hostID) {
-          message.hostID = hostID;
+        if (hostIDParam) {
+          message.hostID = hostIDParam;
+          hostID = hostIDParam;
         }
         client.publish('frontend/to/server', JSON.stringify(message));
         client.subscribe(`server/to/frontend/${userBID}`);
-	client.subscribe(`server/to/host/${userBID}`);
+        client.subscribe(`server/to/host/${userBID}`);
       }
     }
 
-    function sendHostResponse(decision, guestID) {
-      client.publish('frontend/to/server/host_response', JSON.stringify({ hostID: userBID, decision: decision, guestID: guestID }));
+    function sendHostResponse(decision, guestID, game = null) {
+      const response = { hostID: userBID, decision: decision, guestID: guestID };
+      if (game && decision === 'accept') {
+        response.game = game;
+        
+        if (game === 'chess') {
+          gameID = `${userBID}-${guestID}`;
+          gameIDSpan.textContent = gameID;
+          client.subscribe(`chess/to/frontend/${gameID}`);
+          
+          showChessBoard();
+        }
+      }
+      client.publish('frontend/to/server/host_response', JSON.stringify(response));
     }
 
     client.on('connect', () => {
       console.log("Connected to MQTT broker");
     });
 
-client.on('message', (topic, message) => {
-    const serverMessage = JSON.parse(message.toString());
+    client.on('message', (topic, message) => {
+      try {
+        //const serverMessage = JSON.parse(message.toString());
+        const serverMessage = JSON.parse(message.toString('utf8'));
 
-    if (topic === `server/to/frontend/${userBID}`) {
-        if (serverMessage.error) {
+        if (topic === `server/to/frontend/${userBID}`) {
+          if (serverMessage.error) {
             errorMessage.style.visibility = 'visible';
             errorMessage.textContent = serverMessage.error;
             waitingMessage.style.display = 'none';
             console.error(serverMessage.error);
-        } else if (serverMessage.message) {
-            if(serverMessage.message === "Host ID validated") {
-                waitingMessage.style.display = 'block';
+          } else if (serverMessage.message) {
+            if (serverMessage.message === "Host ID validated") {
+              waitingMessage.style.display = 'block';
             } else if (serverMessage.message === "Guest ID validated. Please enter host ID.") {
               hostInputSection.style.display = 'block';
+              hostInputSection.scrollIntoView({ behavior: 'smooth' });
+            } else if (serverMessage.message === "chess_start_host" || serverMessage.message === "chess_start_guest" 
+                || serverMessage.message === "Request accepted by host. Game starting: chess") {
+              // Game is starting
+              gameStartingMessage.style.display = 'block';
+              waitingMessage.style.display = 'none';
+              
+              if (isHost) {
+                gameID = `${userBID}-${hostID || requestingGuestIDSpan.textContent}`;
+              } else {
+                gameID = `${hostID}-${userBID || requestingGuestIDSpan.textContent}`;
+              }
+              
+              gameIDSpan.textContent = gameID;
+              
+              showChessBoard();
             } else {
-                waitingMessage.style.display = 'block';  
-                waitingMessage.textContent = serverMessage.message;
+              waitingMessage.style.display = 'block';  
+              waitingMessage.textContent = serverMessage.message;
             }
+          }
+        } else if (topic === `server/to/host/${userBID}` && isHost) {
+          guestRequestSection.style.display = 'block';
+          guestRequestSection.scrollIntoView({ behavior: 'smooth' }); 
+          requestingGuestIDSpan.textContent = serverMessage.guestID;
+          hostID = serverMessage.guestID;
+          waitingMessage.style.display = 'none';
+        } else if (topic.startsWith('chess/to/frontend/')) {
+          if (serverMessage.boardState) {
+            updateChessBoard(serverMessage.boardState);
+          }
         }
-    } else if (topic === `server/to/host/${userBID}` && isHost) {
-        guestRequestSection.style.display = 'block';
-        requestingGuestIDSpan.textContent = serverMessage.guestID;
+      } catch (e) {
+        console.error("Error processing message:", e);
+        console.log("Raw message:", message.toString());
+      }
+    });
+
+    // Host button clicked
+    hostButton.addEventListener('click', () => {
+      if (validateBoardID()) {
+        isHost = true;
+        document.getElementById('host-or-guest').textContent = 'HOST';
         waitingMessage.style.display = 'none';
-    }
-});
+        hostOptions.style.display = 'block';
+        hostOptions.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
 
-hostButton.addEventListener('click', () => {
-  if (validateBoardID()) {
-    isHost = true;
-    document.getElementById('host-or-guest').textContent = 'HOST';
-    waitingMessage.style.display = 'none';
-    sendRoleToServer('host');
-  }
-});
-
+    // Guest button clicked
     guestButton.addEventListener('click', () => {
       if (validateBoardID()) {
         isHost = false;
@@ -248,31 +454,47 @@ hostButton.addEventListener('click', () => {
       }
     });
 
+    // Confirm button clicked
+    confirmButton.addEventListener('click', () => {
+      if (validateBoardID()) {
+        hostOptions.style.display = 'none';
+        waitingMessage.textContent = "Waiting for guest...";
+        waitingMessage.style.display = 'block';
+        sendRoleToServer('host');
+      }
+    });
+
+    // Accept button clicked
+    acceptRequestButton.addEventListener('click', () => {
+      const selectedGame = gameDropdown.value;
+      sendHostResponse('accept', requestingGuestIDSpan.textContent, selectedGame);
+      guestRequestSection.style.display = 'none';
+      
+      gameStartingMessage.style.display = 'block';
+    });
+
+    // Reject button clicked
+    rejectRequestButton.addEventListener('click', () => {
+      sendHostResponse('reject', requestingGuestIDSpan.textContent);
+      guestRequestSection.style.display = 'none';
+    });
+
+    // Connect button clicked
     connectButton.addEventListener('click', () => {
-      const hostID = hostIDInput.value.trim();
-      if (/^\d{6}$/.test(hostID)) {
-        sendRoleToServer('connect', hostID);
+      const inputHostID = hostIDInput.value.trim();
+      if (/^\d{6}$/.test(inputHostID)) {
+        sendRoleToServer('connect', inputHostID);
+        hostID = inputHostID;
+        gameID = `${hostID}-${userBID}`
+        client.subscribe(`chess/to/frontend/${gameID}`);
+        console.log("gameID is:");
+        console.log(gameID);
         errorMessage.textContent = '';
       } else {
         errorMessage.textContent = "Invalid Host ID";
         errorMessage.style.visibility = 'visible';
       }
     });
-
-acceptRequestButton.addEventListener('click', () => {
-    sendHostResponse('accept', requestingGuestIDSpan.textContent);
-    guestRequestSection.style.display = 'none';
-
-    // Display "Game starting!" message
-    const gameStartingMessage = document.getElementById('game-starting-message');
-    gameStartingMessage.style.display = 'block';
-});
-
-    rejectRequestButton.addEventListener('click', () => {
-        sendHostResponse('reject', requestingGuestIDSpan.textContent);
-        guestRequestSection.style.display = 'none';
-    });
-
   </script>
 </body>
 </html>
