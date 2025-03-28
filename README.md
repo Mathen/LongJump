@@ -9,7 +9,7 @@
 
 ## Project Overview
 LongJump is an electronic board that connects to other LongJump board to play classic boardgames such as checkers, chess, and connect 4.
-Currently we have relased our prototype build with features listed below. To connect to the board online visit for instructions: https://longjump.ip-dynamic.org/
+Currently we have relased our prototype build with features listed below. To start a match or view board internet connection instructions visit: https://longjump.ip-dynamic.org/
 
 ## Prototype
 
@@ -26,13 +26,13 @@ Currently we have relased our prototype build with features listed below. To con
 - Once build visit the link displayed on the screen or https://longjump.ip-dynamic.org/ to connect the board to the internet and website.
 
 ### Board Hardware:
-- Each board is a 3x3 grid of tiles each board contains the following features:
-  - LCD screen displays website URL to connect to. When game is initialized, host board displays "Your turn!" and guest board displays "Waiting for host...".
+- Each board is a 8x8 grid of tiles and contains the following features:
+  - LCD screen displays website URL to connect to. When game is initialized, LCD updates to display useful game information such as turn info or if an invalid move was made.
   - MicroProcessor to connect to the internet and operate the circitry.
   - Level shifters to enhance the brightness of the LEDs and detection range of the hall effect sensor.
   - Each board is scanned like a keyboard where the processor cycles powering each row of the grid and recording the outputs of each column.
 - Tiles:
-  - In the prototype we have a 3x3 board for a total of 9 tiles per board.
+  - 16x16 grid of RGB LEDs used to create 8x8 board (2x2 LEDs represents 1 tile).
   - For the output response to the user, each tile has a programmable RGB LED. The LEDs are programmed as a 1d array and weaved in a snake like pattern on the board and software is used to interface with the spesific index.
   - For the input response from the user, each tile consists of a hall effect sensor which measures magnetic fields (to detect the pieces) and a diode to make sure only the correct connections are reported.
 - Pieces:
