@@ -1,8 +1,9 @@
 #include "Grid.hpp"
 
-// TODO: Define row and column pin values
-const int rowPins[8] = {18, 2, 3, 4, 5, 6, 7, 8};
-const int colPins[8] = {34, 10, 11, 12, 13, 14, 15, 16};
+const int rowPins[8] = {13, 23, 16, 17, 5, 18, 19, 27,};
+const int colPins[8] = {36, 39, 34, 35, 32, 33, 33, 33};
+const int MUX_SEL_0_PIN = 26;
+const int MUX_SEL_1_PIN = 25;
 const int hallSense = 200;
 
 Grid::Grid() : dimX(0), dimY(0)
@@ -18,12 +19,121 @@ Grid::Grid(CRGB* ledArray, unsigned int dimentionX, unsigned int dimentionY) : d
   leds = ledArray;
 }
 
-/* -------------------------------------------------------
-----------------------------------------------------------
------------------THIS IS THE ISSUE------------------------
-----------------------------------------------------------
---------------------------------------------------------*/
+int getLedIndexGridClass(int row, int col) {
+    if (row % 2 == 0) {
+        return row * 16 + col;
+    } else {
+        return row * 16 + (15 - col);
+    }
+}
+
 void Grid::UpdateLeds(const String &payload)
+{
+    Serial.println("Updating LEDs with received message");
+    StaticJsonDocument<256> doc;
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (error) {
+        Serial.print("JSON deserialization failed: ");
+        Serial.println(error.c_str());
+        return;
+    }
+
+    JsonArray boardState = doc["ledArray"];
+    if (!boardState) {
+        Serial.println("Board state not found in payload.");
+        return;
+    }
+
+    // Read incoming board into a 2D array
+    char oldBoard[8][8];
+    for (int i = 0; i < 64; i++) {
+        int row = i / 8;
+        int col = i % 8;
+        const char* cStr = boardState[i];
+        if (cStr) {
+            oldBoard[row][col] = cStr[0];
+        } else {
+            oldBoard[row][col] = '0';
+        }
+    }
+
+    // Rotate board 90 degrees CCW
+    char rotated[8][8];
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            rotated[r][c] = oldBoard[c][7 - r];
+        }
+    }
+
+    // Mirror the rotated array across the HORIZONTAL axis.
+    char mirrored[8][8];
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            mirrored[r][c] = rotated[7 - r][c];
+        }
+    }
+
+    /*
+    // --- Print the final 2D array for debugging ---
+    Serial.println("FINAL 2D ARRAY (after rotation CCW and horizontal mirror):");
+    for (int r = 0; r < 8; r++) {
+        Serial.print("Row ");
+        Serial.print(r);
+        Serial.print(": [ ");
+        for (int c = 0; c < 8; c++) {
+            Serial.print(mirrored[r][c]);
+            if (c < 7) {
+                Serial.print(", ");
+            }
+        }
+        Serial.println(" ]");
+    }
+    */
+
+    // Flatten mirrored board into a 1D array of length 64 to update LEDs
+    char finalFlattened[64];
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            int idx = r * 8 + c;
+            finalFlattened[idx] = mirrored[r][c];
+        }
+    }
+
+    // q values represent the 4 LED quadrants of a tile
+    int q1 = 0;
+    int q2 = 1;
+    int q3 = 30;
+    int q4 = 31;
+
+    // Use finalFlattened to set LEDs
+    for (int i = 0; i < 64; i++) {
+        char c = finalFlattened[i];
+        CRGB color = CharToColor(c);
+
+        leds[q1] = color;
+        leds[q2] = color;
+        leds[q3] = color;
+        leds[q4] = color;
+
+        // Advance the q values
+        if (i % 8 == 7) {
+            q1 += 18;
+            q2 += 18;
+            q3 += 46;
+            q4 += 46;
+        } else {
+            q1 += 2;
+            q2 += 2;
+            q3 -= 2;
+            q4 -= 2;
+        }
+    }
+
+    FastLED.show();
+}
+
+void Grid::UpdateLedsTTT(const String &payload)
 {
   StaticJsonDocument<256> doc;
   DeserializationError error = deserializeJson(doc, payload);
@@ -35,7 +145,7 @@ void Grid::UpdateLeds(const String &payload)
   }
 
   // Expecting payload to contain the board state as an array
-  JsonArray boardState = doc["ledArray"];
+  JsonArray boardState = doc["BoardState"];
   if (!boardState) {
       Serial.println("Board state not found in payload.");
       return;
@@ -55,13 +165,67 @@ void Grid::UpdateLeds(const String &payload)
   for (int i = 0; i < 64; i++) {
 
     // determine the color 
-    c = (unsigned char)boardState[i];
+    switch (i) {
+      case 0:
+      case 1:
+      case 2:{
+        const char* cStr = boardState[i];
+        if (cStr) {
+          c = cStr[0];  // Get the first character
+          if (c == '0') { c = 'w'; }
+        } else {
+          c = 'w';  // Default value in case of error
+        }
+        break;
+      }
+      case 8: {
+          const char* cStr = boardState[i-3];
+          if (cStr) {
+            c = cStr[0];  // Get the first character
+            if (c == '0') { c = 'w'; }
+          } else {
+            c = 'w';  // Default value in case of error
+          }
+        break;
+      }
+      case 9: {
+        const char* cStr = boardState[i-5];
+          if (cStr) {
+            c = cStr[0];  // Get the first character
+            if (c == '0') { c = 'w'; }
+          } else {
+            c = 'w';  // Default value in case of error
+          }
+        break;
+      }
+      case 10: {
+        const char* cStr = boardState[i-7];
+        if (cStr) {
+          c = cStr[0];  // Get the first character
+          if (c == '0') { c = 'w'; }
+        } else {
+          c = 'w';  // Default value in case of error
+        }
+        break;
+      }
+      case 16:
+      case 17:
+      case 18:{
+        const char* cStr = boardState[i - 10];
+        if (cStr) {
+          c = cStr[0];
+          if (c == '0') { c = 'w'; }
+        } else {
+          c = 'w';
+        }
+        break;
+      }
+      default: {
+        c = '0';
+        break;
+      }
+    }
     CRGB color = CharToColor(c);
-
-    // prints 1d array boardState sent by MQTT server
-    Serial.print(c);
-    if (i < 63) { Serial.print(", "); }
-    else { Serial.println(" "); }
 
     // assign the color to the correct 4 leds on the strip
     leds[q1] = color;
@@ -91,46 +255,147 @@ void Grid::UpdateLeds(const String &payload)
 
 }
 
+void Grid::StartTTT()
+{
+  Serial.println("StartTTT");
+  int q1 = 0;
+  int q2 = 1;
+  int q3 = 30;
+  int q4 = 31;
+
+  for (int i = 0; i < 64; i++) {
+    Serial.println(i);
+
+    // determine the color 
+    switch (i) {
+      case 0:
+      case 1:
+      case 2:
+      case 8:
+      case 9:
+      case 10:
+      case 16:
+      case 17:
+      case 18: {
+        leds[q1] = CRGB(255, 255, 255);
+        leds[q2] = CRGB(255, 255, 255);
+        leds[q3] = CRGB(255, 255, 255);
+        leds[q4] = CRGB(255, 255, 255);
+        break;
+      }
+      default:{
+        leds[q1] = CRGB(0, 0, 0);
+        leds[q2] = CRGB(0, 0, 0);
+        leds[q3] = CRGB(0, 0, 0);
+        leds[q4] = CRGB(0, 0, 0);
+        break;
+      }
+    }
+
+    // modify q values so the next 4 leds 
+    if (i % 8 == 7) 
+    {
+      q1 += 18;
+      q2 += 18;
+      q3 += 46;
+      q4 += 46;
+    }
+    else
+    {
+      q1 += 2;
+      q2 += 2;
+      q3 -= 2;
+      q4 -= 2;
+    }
+  }
+
+  FastLED.show();
+}
+
+void Grid::LiveLedsTTT(CRGB* ledArray) 
+{
+  
+  int q1 = 0;
+  int q2 = 1;
+  int q3 = 30;
+  int q4 = 31;
+
+  for (int i = 0; i < 64; i++) {
+    // determine the color
+    CRGB color;
+    switch (i) {
+      case 0:
+      case 1:
+      case 2: {
+        color = ledArray[i];
+        break;
+      }
+      case 8: {
+        color = ledArray[i-3];
+        break;
+      }
+      case 9: {
+        color = ledArray[i-5];
+        break;
+      }
+      case 10: {
+        color = ledArray[i-7];
+        break;
+      }
+      case 16:
+      case 17:
+      case 18: {
+        color = ledArray[i-10];
+        break;
+      }
+      default: {
+        color = CRGB::Black;
+        break;
+      }
+    }
+
+    leds[q1] = color;
+    leds[q2] = color;
+    leds[q3] = color;
+    leds[q4] = color;
+
+    // modify q values so the next 4 leds 
+    if (i % 8 == 7) 
+    {
+      q1 += 18;
+      q2 += 18;
+      q3 += 46;
+      q4 += 46;
+    }
+    else
+    {
+      q1 += 2;
+      q2 += 2;
+      q3 -= 2;
+      q4 -= 2;
+    }
+  }
+  Serial.println(" ");
+
+  FastLED.show();
+  
+}
+
 void Grid::ClearLeds()
 {
   FastLED.clear();
 }
 
-/*
-void Grid::SetColor(unsigned int x, unsigned int y, uint32_t color)
-{
-  if (x < dimX && y < dimY)
-    return;
-
-  if (y % 2 == 1)
-    y = dimY - y - 1;
-
-  leds.setPixelColor(y * dimX + x, color);
-
-  // 0 1 2
-  // 5 4 3
-  // 6 7 8
-}
-void Grid::SetColor(unsigned int x, unsigned int y, uint8_t r, uint8_t g, uint8_t b)
-{
-  SetColor(x, y, Adafruit_NeoPixel::Color(r, g, b));
-}
-*/
-
-/*
-bool Grid::GetPiecePlaced(unsigned int x, unsigned int y)
-{
-  if (x < dimX && y < dimY)
-    return false;
-  else
-    return piecesPlaced[x][y];
-}
-*/
-
 CRGB Grid::CharToColor(unsigned char c)
 {
   CRGB color;
+  if ((char)c != '0') {
+    //Serial.println("\n-----Handling color-----");
+    //Serial.println((char)c);
+  }
   switch (c) {
+    case 'R': // RED
+      color = CRGB(255, 0, 0);
     case 'r': // RED
       color = CRGB(255, 0, 0);
       break;
@@ -141,21 +406,30 @@ CRGB Grid::CharToColor(unsigned char c)
       color = CRGB(0, 0, 255);
       break;
     case 'p': // PURPLE
-      color = CRGB(255, 0, 255);
+      //color = CRGB(255, 0, 255);
+      color = CRGB::Purple;
       break;
     case 'y': // YELLOW
-      color = CRGB(255, 255, 0);
+      //color = CRGB(255, 255, 0);
+      color = CRGB::Yellow;
       break;
     case 'c': // CYAN
-      color = CRGB(0, 255, 255);
+      //color = CRGB(0, 255, 255);
+      color = CRGB::Cyan;
       break;
     case 'o':
-      color = CRGB(238, 73, 35);
+      // ORANGE
+      //color = CRGB(238, 73, 35);
+      color = CRGB::White;
       break;
     case 'w': // WHITE
-      color = CRGB(255, 255, 255);
+    case '1':
+      //color = CRGB(255, 255, 255);
+      color = CRGB::Black;
       break;
     case '0': // BLACK
+      color = CRGB(0, 0, 0);
+      break;
     default:
       color = CRGB(0, 0, 0);
       break;
@@ -165,46 +439,63 @@ CRGB Grid::CharToColor(unsigned char c)
 
 void Grid::UpdateSensors()
 {
-  digitalWrite(rowPins[0], LOW);
-  int sensorReading = analogRead(colPins[0]);
-  if (sensorReading < hallSense) { currSensors[0] = false; }
-  else { currSensors[0] = true; }
+
+  int sensorRaw[8][8];
+  int index = 0;
+
+  for (int row = 0; row < 8; row++) {
+    // Drive the current row LOW, others HIGH
+    for (int i = 0; i < 8; i++) {
+      digitalWrite(rowPins[i], (i == row) ? LOW : HIGH);
+    }
+
+    for (int col = 0; col < 8; col++) {
+      int sensorReading = 0;
+      if (col < 5) {
+        sensorReading = analogRead(colPins[col]);
+      } 
+      // Mux pins
+      else {
+        if (col == 5) {
+          digitalWrite(MUX_SEL_0_PIN, LOW);
+          digitalWrite(MUX_SEL_1_PIN, LOW);
+        } 
+        else if (col == 6) {
+          digitalWrite(MUX_SEL_0_PIN, HIGH);
+          digitalWrite(MUX_SEL_1_PIN, LOW);
+        } 
+        else { // col == 7
+          digitalWrite(MUX_SEL_0_PIN, LOW);
+          digitalWrite(MUX_SEL_1_PIN, HIGH);
+        }
+        delayMicroseconds(50);
+        sensorReading = analogRead(33);
+      }
+
+      sensorRaw[row][col] = sensorReading;
+      currSensors[index] = (sensorReading < hallSense) ? 1 : 0;
+
+      index++;
+    }
+
+    delay(10);
+  }
 
   /*
-  // will iterate 0-63 for each sensor
-  int num = 0;
-
-  // iterates through rows
-  for (int row = 0; row < 8; row++) 
+  Serial.println("Sensor Matrix (RAW analog values):");
+  for (int row = 0; row < 8; row++)
   {
-    // sets row pins LOW and HIGH appropriately
-    for (int i = 0; i < 8; i++) 
-    {
-      if (i == row) { digitalWrite(rowPins[i], LOW); }
-      else { digitalWrite(rowPins[i], HIGH); }
-    }
-
-    // iterates through columns
     for (int col = 0; col < 8; col++)
     {
-      // Assigns a boolean value to currSensors[num] based on readings 
-      // taken for the current iteration of row and col.
-      int sensorReading = analogRead(colPins[col]);
-      if (sensorReading < hallSense) { currSensors[num] = false; }
-      else { currSensors[num] = true; }
-
-      // Increment or decrement num based on the current row
-      if (row % 2 == 0) { num++; }
-      else { num--; }
+      Serial.print(sensorRaw[row][col]);
+      Serial.print(" ");
     }
-
-    // Increment num the correct amount based on the current row
-    if (row % 2 == 0) { num += 7; }
-    else { num += 9; }
-
-    delay(5);
+    Serial.println();  // Move to next row
   }
+  Serial.println();    // Blank line for readability
+  delay(500);
   */
+
 }
 
 
@@ -225,34 +516,12 @@ void Grid::SaveReadings()
   }
 }
 
-const bool* Grid::GetCurrSensors()
+const unsigned char* Grid::GetCurrSensors()
 {
   return currSensors;
 }
 
-bool Grid::GetCurrSensorsAt(int n) const
+unsigned char Grid::GetCurrSensorsAt(int n) const
 {
   return currSensors[n];
 }
-
-/*
-void Grid::SetUpGrid()
-{
-  //leds = Adafruit_NeoPixel(dimX * dimY, 22, NEO_GRB + NEO_KHZ800);
-  //leds.setPin(22);
-  //leds.updateLength(dimX * dimY);
-  //leds.setBrightness(0xFF);
-
-  //leds.begin();
-  //ClearLeds();
-
-  piecesPlaced = std::vector<std::vector<bool>>(dimX, std::vector<bool>());
-  for (unsigned int x = 0; x < dimX; x++)
-  {
-    for (unsigned int y = 0; y < dimY; y++)
-    {
-        piecesPlaced[x].push_back(false);
-    }
-  }
-}
-*/
