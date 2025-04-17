@@ -2,7 +2,8 @@
 <meta charset="UTF-8">
 <html>
 <head>
-  <title>Longjump</title>
+  <title>LongJump</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
   <!--<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>-->
   <style>
     body {
@@ -166,15 +167,16 @@
   </style>
 </head>
 <body>
-  <h1>Longjump</h1>
+  <h1>LongJump</h1>
 
-  <h2>How to Connect Your Longjump Board to Wi-Fi:</h2>
+  <h2>How to Connect Your LongJump Board to Wi-Fi:</h2>
   <ol>
-    <li>With the board powered on, a wireless network called "<strong>Longjump</strong>" is created. Join this network using a phone or laptop.</li>
+    <li>With the board powered on, a wireless network called "<strong>LongJump-{BoardID}</strong>" is created. Join this network using a phone or laptop.</li>
     <li>Once connected, your browser should open to a page that shows the list of available networks. <strong>Note:</strong> The board is only compatible with 2.4 GHz Wi-Fi networks.</li>
     <li>Select your network and enter its password, then click "<strong>Connect</strong>".</li>
-    <li>If you see the green check mark, your board is connected to the internet!</li>
-    <li>The LCD should now display the board's ID for use on this website.</li>
+    <li>Once connected, place all pieces on the board to ensure they are being sensed. <strong>Host</strong> uses White pieces. <strong>Guest</strong> uses Black pieces.</li>
+    <li>Initialize game session below using provided board ID.</li>
+    <li>Start your game and have fun!</li>
   </ol>
 
   <div id="input-section">
@@ -302,34 +304,39 @@
       createChessBoard();
     }
 
-    // Update board state
-    function updateChessBoard(boardState) {
-      const rows = boardState.split('\n');
-      
-      for (let i = 0; i < 8; i++) {
-        const row = rows[i].split(' ');
-        for (let j = 0; j < 8; j++) {
-          const square = document.getElementById(`square-${i}-${j}`);
-          if (square) {
-            const pieceElement = square.querySelector('.chess-piece');
-            if (pieceElement) {
-              const piece = row[j];
-              
-              pieceElement.textContent = pieceMapping[piece] || '';
-              
-              pieceElement.classList.remove('white-piece', 'black-piece');
-              if (piece && piece !== '.') {
-                if (piece === piece.toUpperCase()) {
-                  pieceElement.classList.add('white-piece');
-                } else {
-                  pieceElement.classList.add('black-piece');
-                }
+  // Update board state
+  function updateChessBoard(boardState) {
+    const rows = boardState.split('\n');
+
+    for (let i = 0; i < 8; i++) {
+      const row = rows[i].split(' ');
+
+      for (let j = 0; j < 8; j++) {
+        let boardRow = isHost ? i : 7 - i;
+        let boardCol = isHost ? j : 7 - j;
+
+        const square = document.getElementById(`square-${boardRow}-${boardCol}`);
+        if (square) {
+          const pieceElement = square.querySelector('.chess-piece');
+          if (pieceElement) {
+            const piece = row[j];
+
+            pieceElement.textContent = pieceMapping[piece] || '';
+
+            pieceElement.classList.remove('white-piece', 'black-piece');
+            if (piece && piece !== '.') {
+              if (piece === piece.toUpperCase()) {
+                pieceElement.classList.add('white-piece');
+              } else {
+                pieceElement.classList.add('black-piece');
               }
             }
           }
         }
       }
     }
+  }
+
 
     function validateBoardID() {
       const input = bidInput.value.trim();
