@@ -1,6 +1,3 @@
-// Grid class which stores a 2d array of 'Cell' objects and
-// functions to interface with them
-
 #pragma once
 
 #include <vector>
@@ -23,6 +20,13 @@ public:
   //-----------Grid Interface------------
   //Input piece placement data from circuit and change Cell LEDs
   void UpdateLeds(const String &payload);
+
+  //Input piece placement data from circuit and change Cell LEDs expecting 3x3 data
+  void UpdateLedsTTT(const String &payload);
+
+  void StartTTT();
+
+  void LiveLedsTTT(CRGB* ledArray);
 
   //Change all Cell LEDs to Black
   void ClearLeds();
@@ -47,10 +51,10 @@ public:
   void SaveReadings();
 
   //Returns currSensors
-  const bool* GetCurrSensors();
+  const unsigned char* GetCurrSensors();
 
   //Returns currSensors
-  bool GetCurrSensorsAt(int n) const;
+  unsigned char GetCurrSensorsAt(int n) const;
 
 
 private:
@@ -63,8 +67,8 @@ private:
   unsigned int dimY;
   CRGB* leds;
 
-  bool prevSensors[64] = {0};
-  bool currSensors[64] = {0};
+  unsigned char prevSensors[64] = {0};
+  unsigned char currSensors[64] = {0};
 
   //std::vector<std::vector<bool>> piecesPlaced;
 };
